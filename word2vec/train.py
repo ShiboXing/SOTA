@@ -1,3 +1,6 @@
+# Official tensorflow word2vec tutorial
+# https://www.tensorflow.org/tutorials/text/word2vec
+
 from data import get_training_data
 from tensorflow.keras import layers
 from ipdb import set_trace
