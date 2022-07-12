@@ -1,9 +1,6 @@
-import io
 import os
 import re
-import shutil
 import string
-from responses import mock
 import tensorflow as tf
 
 from ipdb import set_trace
@@ -13,6 +10,7 @@ from tensorflow.keras.layers import Dense, Embedding, GlobalAveragePooling1D
 from tensorflow.keras.layers import TextVectorization
 
 dataset_dir = os.path.expanduser("~/Data/aclImdb/")
+model_pth = os.path.join(os.path.expanduser("~/Models/"), "word_embedding")
 train_dir = os.path.join(dataset_dir, "train")
 # url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 # dataset = tf.keras.utils.get_file("aclImdb_v1.tar.gz", url,
@@ -50,6 +48,7 @@ train_ds = train_ds.cache().prefetch(buffer_size=AUTOTUNE)
 val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
 # Create a custom standardization function to strip HTML break tags '<br />'.
+@tf.keras.utils.register_keras_serializable()
 def custom_standardization(input_data):
     lowercase = tf.strings.lower(input_data)
     stripped_html = tf.strings.regex_replace(lowercase, "<br />", " ")
@@ -91,12 +90,16 @@ model.compile(
     loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
     metrics=["accuracy"],
 )
-model.fit(train_ds, validation_data=val_ds, epochs=15, callbacks=[tensorboard_callback])
-model.summary()
+
+
+if not os.path.exists(model_pth):
+    model.fit(
+        train_ds, validation_data=val_ds, epochs=15, callbacks=[tensorboard_callback]
+    )
+    model.summary()
+    model.save(model_pth)
+else:
+    model = tf.keras.models.load_model(model_pth)
 
 vocab = vectorize_layer.get_vocabulary()
-weights = model.get_layer('embedding').get_weights()[0]
-for index, word in enumerate(vocab):
-    set_trace()
-
-
+weights = model.get_layer("embedding").get_weights()[0]
