@@ -122,7 +122,11 @@ def get_training_data(skipgram_window_size=2):
     sequences = list(text_vector_ds.as_numpy_iterator())
 
     _targets, _contexts, _labels = generate_training_data(
-        sequences=sequences, window_size=skipgram_window_size, num_ns=4, vocab_size=vocab_size, seed=SEED
+        sequences=sequences,
+        window_size=skipgram_window_size,
+        num_ns=4,
+        vocab_size=vocab_size,
+        seed=SEED,
     )
 
     _targets = np.array(_targets)
