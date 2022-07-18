@@ -21,7 +21,6 @@ estimator = TensorFlow(
     instance_type=_instance,
     framework_version="2.8",
     py_version="py39",
-    checkpoint_s3_uri="s3://shibox-general/Models",
     # checkpoint_local_path="/"
 )
 
