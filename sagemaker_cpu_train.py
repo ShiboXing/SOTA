@@ -10,7 +10,13 @@ sagemaker_session = sagemaker.Session()
 role = "arn:aws:iam::903025558691:role/shibox-sagemaker-role"
 region = sagemaker_session.boto_region_name
 _instance = "ml.c5.4xlarge"
-image_url = image_uris.retrieve(framework='tensorflow',region='us-west-2',version='2.8.0',image_scope='training',instance_type=_instance)
+image_url = image_uris.retrieve(
+    framework="tensorflow",
+    region="us-west-2",
+    version="2.8.0",
+    image_scope="training",
+    instance_type=_instance,
+)
 
 
 estimator = TensorFlow(
@@ -26,4 +32,3 @@ estimator = TensorFlow(
 
 train_dir = "s3://shibox-general" + "/aclImdb"
 estimator.fit(train_dir)
-

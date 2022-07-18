@@ -13,6 +13,7 @@ from tensorflow.keras.layers import TextVectorization
 
 random.seed(10)
 
+
 def train(args):
     dataset_dir = os.path.expanduser(args.data_dir)
     model_pth = os.path.join(os.path.expanduser(args.data_dir), "word_embedding")
@@ -31,7 +32,11 @@ def train(args):
     embedding = 16
     seed = 123
     train_ds = tf.keras.utils.text_dataset_from_directory(
-        train_dir, batch_size=batch_size, validation_split=0.2, subset="training", seed=seed
+        train_dir,
+        batch_size=batch_size,
+        validation_split=0.2,
+        subset="training",
+        seed=seed,
     )
     val_ds = tf.keras.utils.text_dataset_from_directory(
         train_dir,
@@ -40,7 +45,6 @@ def train(args):
         subset="validation",
         seed=seed,
     )
-
 
     # for text_batch, label_batch in train_ds.take(1):
     #     for i in range(5):
@@ -60,7 +64,6 @@ def train(args):
         return tf.strings.regex_replace(
             stripped_html, "[%s]" % re.escape(string.punctuation), ""
         )
-
 
     # Vocabulary size and number of words in a sequence.
     vocab_size = 10000
@@ -96,7 +99,6 @@ def train(args):
         metrics=["accuracy"],
     )
 
-
     # if not os.path.exists(model_pth):
     #     model.fit(
     #         train_ds, validation_data=val_ds, epochs=15, callbacks=[tensorboard_callback]
@@ -105,7 +107,6 @@ def train(args):
     #     model.save(model_pth)
     # else:
     #     model = tf.keras.models.load_model(model_pth)
-
 
     model.fit(
         train_ds, validation_data=val_ds, epochs=15, callbacks=[tensorboard_callback]
@@ -117,21 +118,27 @@ def train(args):
     vocab = vectorize_layer.get_vocabulary()
     weights = model.get_layer("embedding").get_weights()[0]
 
+
 def test(model, words_str):
-    words = words_str.split(' ')
-    vectors = model.layers[1](model.layers[0](words_str))[:len(words)]
+    words = words_str.split(" ")
+    vectors = model.layers[1](model.layers[0](words_str))[: len(words)]
     fig, ax = plt.subplots()
     for j in range(len(vectors)):
         ax.plot([i for i in range(len(vectors[0]))], vectors[j])
     ax.legend(words)
     fig.show()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--data_dir", type=str, default=os.environ.get("SM_CHANNEL_TRAINING"))
+    parser.add_argument(
+        "--data_dir", type=str, default=os.environ.get("SM_CHANNEL_TRAINING")
+    )
     parser.add_argument("--model_dir", type=str)
-    parser.add_argument("--sm-model-dir", type=str, default=os.environ.get("SM_MODEL_DIR"))
-    args, _  = parser.parse_known_args()
-    train(args) 
+    parser.add_argument(
+        "--sm-model-dir", type=str, default=os.environ.get("SM_MODEL_DIR")
+    )
+    args, _ = parser.parse_known_args()
+    train(args)
     # test(model, words)
