@@ -5,13 +5,13 @@ import string
 import argparse
 import random
 import tensorflow as tf
-
-random.seed(10)
+import matplotlib.pyplot as plt
 
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Embedding, GlobalAveragePooling1D
 from tensorflow.keras.layers import TextVectorization
 
+random.seed(10)
 
 def train(args):
     dataset_dir = os.path.expanduser(args.data_dir)
@@ -111,12 +111,20 @@ def train(args):
         train_ds, validation_data=val_ds, epochs=15, callbacks=[tensorboard_callback]
     )
     model.summary()
-    # model.save("s3://shibox-general/Models/")
-    model.save("/opt/ml/model")
+    model.save(args.sm_model_dir)
+    # model.save("/opt/ml/model")
 
     vocab = vectorize_layer.get_vocabulary()
     weights = model.get_layer("embedding").get_weights()[0]
 
+def test(model, words_str):
+    words = words_str.split(' ')
+    vectors = model.layers[1](model.layers[0](words_str))[:len(words)]
+    fig, ax = plt.subplots()
+    for j in range(len(vectors)):
+        ax.plot([i for i in range(len(vectors[0]))], vectors[j])
+    ax.legend(words)
+    fig.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -126,3 +134,4 @@ if __name__ == "__main__":
     parser.add_argument("--sm-model-dir", type=str, default=os.environ.get("SM_MODEL_DIR"))
     args, _  = parser.parse_known_args()
     train(args) 
+    # test(model, words)
