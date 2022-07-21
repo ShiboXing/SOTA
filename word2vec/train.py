@@ -8,7 +8,7 @@ from ipdb import set_trace
 import tensorflow as tf
 
 num_ns = 4
-skipgram_window_size = 3
+skipgram_window_size = "FOR REBASE TESTING"
 vocab_size = 4096
 BATCH_SIZE = 1024
 BUFFER_SIZE = 10000
