@@ -5,9 +5,10 @@ import pandas as pd
 from torch.utils.data import Dataset as DS
 from PIL import Image
 
-class OID_Dataset(Dataset):
+class OID_Dataset(DS):
     
     def __init__(self, root, label_file, classes, dtype='TRAIN'):
+        super(DS, self).__init__()
         self.__root__ = root
         self.fnames = os.listdir(f'{root}/IMAGES/{dtype}/DATA/')
         self.labels = pd.read_csv(f'{root}/ANNOT/{label_file}')
