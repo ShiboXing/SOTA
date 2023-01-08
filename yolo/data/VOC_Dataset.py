@@ -5,7 +5,7 @@ import matplotlib.image as mpimg
 from os.path import join
 from subprocess import run
 from PIL import Image
-from numpy import asarray
+from numpy import array
 from torch.utils.data import Dataset as DS, DataLoader as DL
 
 
@@ -20,10 +20,10 @@ def get_bboxes(xml_pth):
     tree = ET.parse(xml_pth)
     objs = tree.findall(".//object")
     dims = []
+
     for o in objs:
         bbox = o.findall(".//bndbox/*")
-        dims.append([int(n.text) for n in bbox])
-
+        dims.append([int(float(n.text)) for n in bbox])
     return dims
 
 
@@ -47,7 +47,10 @@ class VOC_Dataset(DS):
         self.ant_root = join(voc_root, "Annotations")
 
         res = run(f"ls {self.img_root}", shell=True, check=True, capture_output=True)
-        self.imgs = res.stdout.decode("utf-8").split("\n")
+        self.imgs = res.stdout.decode("utf-8").strip().split("\n")
+
+    def __len__(self):
+        return len(self.imgs)
 
     def __getitem__(self, ind):
         """
@@ -59,14 +62,14 @@ class VOC_Dataset(DS):
         img_pth, ant_pth = join(self.img_root, img_file), join(
             self.ant_root, label_file
         )
-
+        if not img_file:
+            print(ind, self.imgs)
         img = Image.open(img_pth)
-        print(img.size)
         coords = get_bboxes(ant_pth)
         pct_coords = []
         for coord in coords:
             pct_coords.append(get_pct_coords(coord, img.size))
         res_img = img.resize((448, 448))
-        data = asarray(res_img)
+        data = array(res_img, copy=True)
 
         return data, pct_coords
