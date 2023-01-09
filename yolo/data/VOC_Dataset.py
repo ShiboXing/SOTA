@@ -62,8 +62,7 @@ class VOC_Dataset(DS):
         img_pth, ant_pth = join(self.img_root, img_file), join(
             self.ant_root, label_file
         )
-        if not img_file:
-            print(ind, self.imgs)
+        
         img = Image.open(img_pth)
         coords = get_bboxes(ant_pth)
         pct_coords = []
