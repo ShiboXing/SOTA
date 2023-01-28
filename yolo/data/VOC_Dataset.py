@@ -5,7 +5,7 @@ import matplotlib.image as mpimg
 from os.path import join
 from subprocess import run
 from PIL import Image
-from numpy import array
+from numpy import array, transpose
 from torch.utils.data import Dataset as DS, DataLoader as DL
 
 
@@ -69,6 +69,5 @@ class VOC_Dataset(DS):
         for coord in coords:
             pct_coords.append(get_pct_coords(coord, img.size))
         res_img = img.resize((448, 448))
-        data = array(res_img, copy=True)
 
-        return data, pct_coords
+        return transpose(array(res_img, copy=True), (2, 0, 1)), pct_coords
