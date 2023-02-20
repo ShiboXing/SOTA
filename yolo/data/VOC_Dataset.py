@@ -2,7 +2,9 @@ import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
+from os import listdir
 from os.path import join
+from ipdb import set_trace
 from subprocess import run
 from PIL import Image
 from numpy import array, transpose
@@ -26,6 +28,14 @@ def get_bboxes(xml_pth):
         dims.append([int(float(n.text)) for n in bbox])
     return dims
 
+def get_classes(xml_pth):
+    'Get class name of a xml'
+    tree = ET.parse(xml_pth)
+    names = tree.findall(".//object/name")
+    
+    return tuple(n.text for n in names)
+    
+
 
 def get_pct_coords(bbox, img_dims):
     """Keyword arguments:
@@ -45,9 +55,16 @@ class VOC_Dataset(DS):
     def __init__(self, voc_root: str):
         self.img_root = join(voc_root, "JPEGImages")
         self.ant_root = join(voc_root, "Annotations")
+        self.imgs = listdir(self.img_root)
 
-        res = run(f"ls {self.img_root}", shell=True, check=True, capture_output=True)
-        self.imgs = res.stdout.decode("utf-8").strip().split("\n")
+        total_C = set()
+        for f in listdir(self.ant_root):
+            classes = get_classes(join(self.ant_root, f))
+            total_C |= set(classes)
+        if len(total_C) != 20:
+            raise Exception("number of classes must be 20")
+        # one-hot encode classes
+        self.class_dict = dict((c, i) for i, c in enumerate(total_C))
 
     def __len__(self):
         return len(self.imgs)
@@ -65,9 +82,12 @@ class VOC_Dataset(DS):
         
         img = Image.open(img_pth)
         coords = get_bboxes(ant_pth)
-        pct_coords = []
-        for coord in coords:
+        classes = get_classes(ant_pth)
+        pct_coords, obj_classes = [], []
+        for i, coord in enumerate(coords):
             pct_coords.append(get_pct_coords(coord, img.size))
+            # class encoding
+            obj_classes.append(self.class_dict[classes[i]])
         res_img = img.resize((448, 448))
 
-        return transpose(array(res_img, copy=True), (2, 0, 1)), pct_coords
+        return transpose(array(res_img, copy=True), (2, 0, 1)), pct_coords, obj_classes
