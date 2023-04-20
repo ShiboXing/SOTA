@@ -1,18 +1,19 @@
 from torch import nn
 from ipdb import set_trace
 
+
 class YOLOv1(nn.Module):
     def __add_relu__(self, conv: list):
         res = []
         for l in conv:
             res.append(l)
             res.append(nn.LeakyReLU(0.1))
-        
+
         return res
 
     def __init__(self, c=64):
         super(YOLOv1, self).__init__()
-        
+
         conv1 = [
             nn.Conv2d(3, 64, 7, stride=2, padding=1),
             nn.MaxPool2d(2, stride=2, padding=1),
@@ -63,10 +64,8 @@ class YOLOv1(nn.Module):
             nn.Linear(50176, 4096),
         ]
 
-        fc2 = [
-            nn.Linear(4096, 1470)
-        ]
-        
+        fc2 = [nn.Linear(4096, 1470)]
+
         self.conv1 = nn.Sequential(*self.__add_relu__(conv1))
         self.conv2 = nn.Sequential(*self.__add_relu__(conv2))
         self.conv3 = nn.Sequential(*self.__add_relu__(conv3))
@@ -75,8 +74,7 @@ class YOLOv1(nn.Module):
         self.conv6 = nn.Sequential(*self.__add_relu__(conv6))
         self.fc1 = nn.Sequential(*self.__add_relu__(fc1))
         self.fc2 = nn.Sequential(*self.__add_relu__(fc2))
-        
-        
+
     def forward(self, img):
         # conv layers
         h1 = self.conv1(img)

@@ -11,7 +11,6 @@ from ipdb import set_trace
 
 
 def get_training_data(skipgram_window_size=2):
-
     # Load the TensorBoard notebook extension
     # %load_ext tensorboard
     SEED = 42
@@ -32,7 +31,6 @@ def get_training_data(skipgram_window_size=2):
 
         # Iterate over all sequences (sentences) in the dataset.
         for sequence in tqdm.tqdm(sequences):
-
             # Generate positive skip-gram pairs for a sequence (sentence).
             positive_skip_grams, _ = tf.keras.preprocessing.sequence.skipgrams(
                 sequence,
