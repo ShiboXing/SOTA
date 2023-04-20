@@ -28,13 +28,13 @@ def get_bboxes(xml_pth):
         dims.append([int(float(n.text)) for n in bbox])
     return dims
 
+
 def get_classes(xml_pth):
-    'Get class name of a xml'
+    "Get class name of a xml"
     tree = ET.parse(xml_pth)
     names = tree.findall(".//object/name")
-    
+
     return tuple(n.text for n in names)
-    
 
 
 def get_pct_coords(bbox, img_dims):
@@ -79,7 +79,7 @@ class VOC_Dataset(DS):
         img_pth, ant_pth = join(self.img_root, img_file), join(
             self.ant_root, label_file
         )
-        
+
         img = Image.open(img_pth)
         coords = get_bboxes(ant_pth)
         classes = get_classes(ant_pth)
@@ -88,6 +88,6 @@ class VOC_Dataset(DS):
             pct_coords.append(get_pct_coords(coord, img.size))
             # class encoding
             obj_classes.append(self.class_dict[classes[i]])
-        res_img = img.resize((448, 448))
+        res_img = img.resize((448, 448)) / 255  # normalize RGB
 
         return transpose(array(res_img, copy=True), (2, 0, 1)), pct_coords, obj_classes
