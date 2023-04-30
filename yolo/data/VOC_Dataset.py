@@ -65,6 +65,7 @@ class VOC_Dataset(DS):
             raise Exception("number of classes must be 20")
         # one-hot encode classes
         self.class_dict = dict((c, i) for i, c in enumerate(total_C))
+        print("class dict: ", self.class_dict)
 
     def __len__(self):
         return len(self.imgs)
