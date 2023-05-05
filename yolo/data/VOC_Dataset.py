@@ -5,10 +5,9 @@ import matplotlib.image as mpimg
 from os import listdir
 from os.path import join
 from ipdb import set_trace
-from subprocess import run
 from PIL import Image
 from numpy import array, transpose
-from torch.utils.data import Dataset as DS, DataLoader as DL
+from torch.utils.data import Dataset as DS
 
 
 def get_bboxes(xml_pth):
