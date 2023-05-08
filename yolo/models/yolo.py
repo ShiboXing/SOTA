@@ -78,21 +78,21 @@ class YOLOv1(nn.Module):
         ]
 
         fc1 = [
-            nn.Linear(50176, 4096), 
+            nn.Linear(50176, 4096),
             nn.Dropout(),
             nn.LeakyReLU(negative_slope=0.1),
         ]
 
         fc2 = [nn.Linear(4096, 1470)]
 
-        self.conv1 = nn.Sequential(*conv1) #nn.Sequential(*self.__add_relu__(conv1))
-        self.conv2 = nn.Sequential(*conv2) #nn.Sequential(*self.__add_relu__(conv2))
-        self.conv3 = nn.Sequential(*conv3) #nn.Sequential(*self.__add_relu__(conv3))
-        self.conv4 = nn.Sequential(*conv4) #nn.Sequential(*self.__add_relu__(conv4))
-        self.conv5 = nn.Sequential(*conv5) #nn.Sequential(*self.__add_relu__(conv5))
-        self.conv6 = nn.Sequential(*conv6) #nn.Sequential(*self.__add_relu__(conv6))
-        self.fc1 = nn.Sequential(*fc1) #nn.Sequential(*self.__add_relu__(fc1))
-        self.fc2 = nn.Sequential(*fc2) #nn.Sequential(*self.__add_relu__(fc2))
+        self.conv1 = nn.Sequential(*conv1)  # nn.Sequential(*self.__add_relu__(conv1))
+        self.conv2 = nn.Sequential(*conv2)  # nn.Sequential(*self.__add_relu__(conv2))
+        self.conv3 = nn.Sequential(*conv3)  # nn.Sequential(*self.__add_relu__(conv3))
+        self.conv4 = nn.Sequential(*conv4)  # nn.Sequential(*self.__add_relu__(conv4))
+        self.conv5 = nn.Sequential(*conv5)  # nn.Sequential(*self.__add_relu__(conv5))
+        self.conv6 = nn.Sequential(*conv6)  # nn.Sequential(*self.__add_relu__(conv6))
+        self.fc1 = nn.Sequential(*fc1)  # nn.Sequential(*self.__add_relu__(fc1))
+        self.fc2 = nn.Sequential(*fc2)  # nn.Sequential(*self.__add_relu__(fc2))
 
     def forward(self, img):
         # conv layers
