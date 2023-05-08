@@ -89,5 +89,5 @@ class VOC_Dataset(DS):
             # class encoding
             obj_classes.append(self.class_dict[classes[i]])
         img_arr = array(img.resize((448, 448)), copy=True) / 255.0  # normalize for RGB
-
+        
         return transpose(img_arr, (2, 0, 1)), pct_coords, obj_classes
