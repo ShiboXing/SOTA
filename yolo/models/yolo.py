@@ -79,11 +79,14 @@ class YOLOv1(nn.Module):
 
         fc1 = [
             nn.Linear(50176, 4096),
-            nn.Dropout(),
             nn.LeakyReLU(negative_slope=0.1),
+            nn.Dropout(),
         ]
 
-        fc2 = [nn.Linear(4096, 1470)]
+        fc2 = [
+            nn.Linear(4096, 1470),
+            nn.Sigmoid(),  # sigmoid is important because image pixel values are non-negative
+        ]
 
         self.conv1 = nn.Sequential(*conv1)  # nn.Sequential(*self.__add_relu__(conv1))
         self.conv2 = nn.Sequential(*conv2)  # nn.Sequential(*self.__add_relu__(conv2))
