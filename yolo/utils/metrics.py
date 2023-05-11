@@ -1,11 +1,17 @@
+from copy import copy
+
+
 def xywh_2_xxyy(bbox):
-    """Bbox: x, y, w, h"""
-    return (
+    """Convert bbox from xywh to xxyy, assuming the first 4 elems as coords"""
+    bbox = list(copy(bbox))
+    bbox[0], bbox[1], bbox[2], bbox[3] = (
         bbox[0] - bbox[2] / 2,
         bbox[1] - bbox[3] / 2,
         bbox[0] + bbox[2] / 2,
         bbox[1] + bbox[3] / 2,
     )
+
+    return tuple(bbox)
 
 
 def IOU(output, label):

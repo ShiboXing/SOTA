@@ -63,6 +63,7 @@ class VOC_Dataset(DS):
         if len(total_C) != 20:
             raise Exception("number of classes must be 20")
         # one-hot encode classes
+        total_C = sorted(list(total_C))
         self.class_dict = dict((c, i) for i, c in enumerate(total_C))
         print("class dict: ", self.class_dict)
 
