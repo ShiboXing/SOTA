@@ -1,6 +1,8 @@
 from torch import nn
 from ipdb import set_trace
 
+import torchvision.models as models
+
 
 class YOLOv1(nn.Module):
     def __add_relu__(self, conv: list):
@@ -88,6 +90,9 @@ class YOLOv1(nn.Module):
             nn.Sigmoid(),  # sigmoid is important because image pixel values are non-negative
         ]
 
+        self.features = nn.Sequential(
+            models.vgg16(pretrained=True).features, nn.Conv2d(512, 1024, 3, padding=1)
+        )
         self.conv1 = nn.Sequential(*conv1)  # nn.Sequential(*self.__add_relu__(conv1))
         self.conv2 = nn.Sequential(*conv2)  # nn.Sequential(*self.__add_relu__(conv2))
         self.conv3 = nn.Sequential(*conv3)  # nn.Sequential(*self.__add_relu__(conv3))
@@ -99,13 +104,14 @@ class YOLOv1(nn.Module):
 
     def forward(self, img):
         # conv layers
-        h1 = self.conv1(img)
-        h2 = self.conv2(h1)
-        h3 = self.conv3(h2)
-        h4 = self.conv4(h3)
-        h5 = self.conv5(h4)
+        h0 = self.features(img)
+        # h1 = self.conv1(img)
+        # h2 = self.conv2(h1)
+        # h3 = self.conv3(h2)
+        # h4 = self.conv4(h3)
+        h5 = self.conv5(h0)
         h6 = self.conv6(h5)
         h7 = self.fc1(h6.reshape(h6.shape[0], 1, -1))
         h8 = self.fc2(h7.reshape(h7.shape[0], 1, -1))
-
+        # set_trace()
         return h8.reshape(h8.shape[0], 30, 7, 7)
