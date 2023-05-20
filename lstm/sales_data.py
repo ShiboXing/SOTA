@@ -26,7 +26,7 @@ class Sales_Dataset(DS):
         self.S = pd.read_csv(f"{dir_pth}/stores.csv", index_col=False)
         self.TR = pd.read_csv(f"{dir_pth}/train.csv", index_col=False)
         self.TS = pd.read_csv(f"{dir_pth}/transactions.csv", index_col=False)
-        
+
         # construct the primary key
         ids = set()
         self.TR.apply(lambda row: ids.add((row["date"], row["store_nbr"])), axis=1)
@@ -43,23 +43,16 @@ class Sales_Dataset(DS):
         self.S.cluster = self.z_series(self.S.cluster)
         self.S.type = self.z_series(self.parse_nominal(self.S.type))
         self.S = self.S[["city", "cluster", "type"]]
-        self.O = self.O[["date"]]
 
     def __len__(self):
         return len(self.ids)
 
     def __getitem__(self, idx):
         date, store_nbr = self.ids[idx]
-        # from ipdb import set_trace
-        # set_trace()
         tr = self.TR[(self.TR.date == date) & (self.TR.store_nbr == store_nbr)]
-        ts = self.TS[self.TS.date == date]
-        # h = self.H[self.H.date == date]
+        ts = self.TS[(self.TS.date == date) & (self.TR.store_nbr == store_nbr)]
         o = self.O[self.O.date == date]
         
         return (
-            self.TR[self.TR.date == date],
-            self.TS[self.TS.date == date],
-            self.H[self.H.date == date],
-            self.O[self.O.date == date],
+            tr, ts, o
         )
