@@ -12,8 +12,7 @@ class Sales_Dataset(DS):
         """Calculate in-place the log returns of y_col"""
         df[y_col] += 0.1 # prevent division by zero
         df.sort_values(by=sort_keys, inplace=True)
-        df[y_col] = np.log(df[y_col] / df[y_col].shift(1))
-
+        return np.log(df[y_col] / df[y_col].shift(1))
         
     def z_series(self, df: pd.Series):
         """Normalize dataframe series while eliminating the effect of zeros"""
@@ -43,11 +42,11 @@ class Sales_Dataset(DS):
 
         # preprocess data
         self.TR.family = self.z_series(self.parse_nominal(self.TR.family))
-        self.get_log_ret(self.TR, "sales", ["store_nbr", "family", "date"])
+        self.TR.sales = self.get_log_ret(self.TR, "sales", ["store_nbr", "family", "date"])
         self.TR.onpromotion = self.z_series(self.TR.onpromotion)
         self.promo_std, self.promo_mean = self.TR.onpromotion.std(), self.TR.onpromotion.mean()
 
-        self.get_log_ret(self.TS, "transactions", ["store_nbr", "date"])
+        self.TS.transactions = self.get_log_ret(self.TS, "transactions", ["store_nbr", "date"])
         self.S.city = self.z_series(self.parse_nominal(self.S.city))
         self.S.cluster = self.z_series(self.S.cluster)
         self.S.type = self.z_series(self.parse_nominal(self.S.type))
