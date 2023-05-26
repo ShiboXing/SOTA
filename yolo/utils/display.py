@@ -17,7 +17,7 @@ def display_image_bbox(img, labels=[], titles=[]):
         draw.text(
             (
                 448 * (pc[0] + pc[2] / 2 - pc[0] / 2),
-                448 * (pc[1] + pc[3] / 2 + pc[1] / 2),
+                448 * (pc[1] + pc[3] / 2 - pc[1] / 2),
             ),
             text,
             fill="red",
