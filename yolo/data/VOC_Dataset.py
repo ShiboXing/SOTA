@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -8,6 +10,7 @@ from ipdb import set_trace
 from PIL import Image
 from numpy import array, transpose
 from torch.utils.data import Dataset as DS
+from utils.metrics import xxyy_2_xywh
 
 
 def get_bboxes(xml_pth):
@@ -42,12 +45,12 @@ def get_pct_coords(bbox, img_dims):
     bbox -- (xmin, ymin, xmax, ymax)
     img_dims -- (xsize, ysize)
     """
-    return (
+    return [
         float(bbox[0]) / img_dims[0],
         float(bbox[1]) / img_dims[1],
         float(bbox[2]) / img_dims[0],
         float(bbox[3]) / img_dims[1],
-    )
+    ]
 
 
 class VOC_Dataset(DS):
@@ -86,9 +89,9 @@ class VOC_Dataset(DS):
         classes = get_classes(ant_pth)
         pct_coords, obj_classes = [], []
         for i, coord in enumerate(coords):
-            pct_coords.append(get_pct_coords(coord, img.size))
+            pct_coords.append(get_pct_coords(xxyy_2_xywh(coord), img.size))
             # class encoding
             obj_classes.append(self.class_dict[classes[i]])
         img_arr = array(img.resize((448, 448)), copy=True) / 255.0  # normalize for RGB
 
-        return transpose(img_arr, (2, 0, 1)), pct_coords, obj_classes
+        return [transpose(img_arr, (2, 0, 1)), pct_coords, obj_classes]

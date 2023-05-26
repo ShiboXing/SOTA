@@ -1,5 +1,16 @@
 from copy import copy
 
+def xxyy_2_xywh(bbox):
+    """Convert bbox from xywh to xxyy, assuming the first 4 elems as coords"""
+    bbox = list(copy(bbox))
+    bbox[0], bbox[1], bbox[2], bbox[3] = (
+        bbox[0] + (bbox[2] - bbox[0]) / 2,
+        bbox[1] + (bbox[3] - bbox[1]) / 2,
+        bbox[2] - bbox[0],
+        bbox[3] - bbox[1],
+    )
+
+    return tuple(bbox)
 
 def xywh_2_xxyy(bbox):
     """Convert bbox from xywh to xxyy, assuming the first 4 elems as coords"""
