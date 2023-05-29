@@ -1,5 +1,6 @@
 from torch import nn
 from ipdb import set_trace
+from torchvision.models.vgg import VGG16_Weights
 
 import torchvision.models as models
 
@@ -91,7 +92,8 @@ class YOLOv1(nn.Module):
         ]
 
         self.features = nn.Sequential(
-            models.vgg16(pretrained=True).features, nn.Conv2d(512, 1024, 3, padding=1)
+            models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1).features,
+            nn.Conv2d(512, 1024, 3, padding=1),
         )
         self.conv1 = nn.Sequential(*conv1)  # nn.Sequential(*self.__add_relu__(conv1))
         self.conv2 = nn.Sequential(*conv2)  # nn.Sequential(*self.__add_relu__(conv2))
