@@ -4,3 +4,4 @@ logs/
 sagemaker_helper.py
 __pycache__
 .env
+*.pkl
