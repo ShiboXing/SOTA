@@ -9,13 +9,11 @@ from torch.utils.data import Dataset as DS
 
 
 class Sales_Dataset(DS):
-    
     def get_log_ret(self, df: pd.DataFrame, y_col: str, sort_keys=[]):
         """Calculate in-place the log returns of y_col"""
-        df.sort_values(by=sort_keys, inplace=True)
         rets = np.log(df[y_col] / df[y_col].shift(1))
         rets = rets.replace({np.nan: 0, -np.inf: 0, np.inf: 1})
-        
+
         return rets
 
     def z_series(self, df: pd.Series, clip=False):
@@ -28,7 +26,6 @@ class Sales_Dataset(DS):
             )
         return (df - df.mean()) / df.std()
 
-
     def get_nominal_dict(self, df: pd.Series):
         d = {elem: i for i, elem in enumerate(set(df))}
         vals = np.array(list(d.values()))
@@ -37,64 +34,86 @@ class Sales_Dataset(DS):
 
         return d
 
-
-    def __init__(self, dir_pth, is_train = True):
+    def __init__(self, dir_pth, is_train=True):
         self.H = pd.read_csv(f"{dir_pth}/holidays_events.csv", index_col=False)
         self.O = pd.read_csv(f"{dir_pth}/oil.csv", index_col=False)
         self.S = pd.read_csv(f"{dir_pth}/stores.csv", index_col=False)
         self.TR = pd.read_csv(f"{dir_pth}/train.csv", index_col=False)
         self.TS = pd.read_csv(f"{dir_pth}/transactions.csv", index_col=False)
-
-        # construct the primary key
-        ids = set()
-        self.TR.apply(lambda row: ids.add((row["date"], row["store_nbr"])), axis=1)
-        self.ids = sorted(list(ids))
-
+        
         # preprocess nominal data
         if is_train:
+            len_dict = {
+                "family": len(set(self.TR["family"])),
+            }
             family_encoding = self.get_nominal_dict(self.TR.family)
             city_encoding = self.get_nominal_dict(self.S.city)
             type_encoding = self.get_nominal_dict(self.S.type)
             cluster_encoding = self.get_nominal_dict(self.S.cluster)
 
+            with open(f"{dir_pth}/len_dict.pkl", "wb") as f: pickle.dump(len_dict, f)
             with open(f"{dir_pth}/family_encode.pkl", "wb") as f: pickle.dump(family_encoding, f)
             with open(f"{dir_pth}/city_encode.pkl", "wb") as f: pickle.dump(city_encoding, f)
             with open(f"{dir_pth}/type_encode.pkl", "wb") as f: pickle.dump(type_encoding, f)
             with open(f"{dir_pth}/cluster_encode.pkl", "wb") as f: pickle.dump(cluster_encoding, f)
+        
+        self.family_len = len_dict["family"]
 
         self.TR.family = self.TR.family.map(family_encoding)
         self.S.city = self.S.city.map(city_encoding)
         self.S.type = self.S.type.map(type_encoding)
         self.S.cluster = self.S.cluster.map(cluster_encoding)
-        self.S = self.S[["city", "cluster", "type"]]
+        self.S = self.S[["store_nbr", "city", "cluster", "type"]]
+
+        # order the rows
+        self.TR.sort_values(["store_nbr", "date", "family"], inplace=True)
+        self.TR.set_index(["store_nbr", "date"], inplace=True)
+        self.TR.drop("id")
+        self.TS.sort_values(["store_nbr", "date"], inplace=True)
+        self.TS.set_index(["store_nbr", "date"], inplace=True)
+        self.O.date = pd.to_datetime(self.O.date)
+        self.O.sort_values(["date"], inplace=True)
+        self.O.set_index(["date"], inplace=True)
+        self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
 
         # preprocess return data
         self.TR.sales = self.get_log_ret(
             self.TR, "sales", ["store_nbr", "family", "date"]
         )
-        # self.TR.onpromotion = self.z_series(self.TR.onpromotion)
-        # self.promo_std, self.promo_mean = (
-        #     self.TR.onpromotion.std(),
-        #     self.TR.onpromotion.mean(),
-        # )
-        self.TR.onpromotion = self.get_log_ret(self.TR, "onpromotion", ["store_nbr", "family", "date"])
+        self.TR.onpromotion = self.get_log_ret(
+            self.TR, "onpromotion", ["store_nbr", "family", "date"]
+        )
         self.TS.transactions = self.get_log_ret(
             self.TS, "transactions", ["store_nbr", "date"]
         )
+        
+        self.O = self.O.asfreq("D")
+        self.O = self.O.interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico", ["date"])
 
-        # order the rows
-        self.TR.sort_values(["date", "store_nbr", "family"], inplace=True)
-        self.TS.sort_values(["date", "store_nbr"], inplace=True)
-        self.O.sort_values(["date"], inplace=True)
+        # construct the primary key
+        self.ids = sorted(list(set(self.TR.index)))[1:]
 
     def __len__(self):
         return len(self.ids)
 
     def __getitem__(self, idx):
-        date, store_nbr = self.ids[idx]
-        tr = self.TR[(self.TR.date == date) & (self.TR.store_nbr == store_nbr)]
-        ts = self.TS[(self.TS.date == date) & (self.TR.store_nbr == store_nbr)]
-        o = self.O[self.O.date == date]
+        """Sample dimension: per (date, store_nbr): 
+            (family(N)) * (sale + onpromotion + oil + transaction + city + cluster + type)"""
+                 
+        store_nbr, date = self.ids[idx]
+        sample = torch.zeros((self.family_len, 7), dtype=torch.float32)
+        sale_data = self.TR.loc[(store_nbr, date)]
+        oil_data = self.O.loc[(date)].to_numpy()
+        if (store_nbr, date) not in self.TS.index:
+            trans_data = np.zeros((sample.shape[0]))
+        else:
+            trans_data = self.TS.loc[(store_nbr, date)].to_numpy()
+        s_data = self.S.loc[(store_nbr)].to_numpy()
 
-        return (tr, ts, o)
+        sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
+        sample[:, 2] = torch.tensor(oil_data)
+        sample[:, 3] = torch.tensor(trans_data)
+        sample[:, 4:] = torch.tensor(s_data)
+
+        return sample
