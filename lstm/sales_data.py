@@ -3,9 +3,10 @@ import os
 import numpy as np
 import torch
 import pickle
-
 from ipdb import set_trace
 from torch.utils.data import Dataset as DS
+
+from common_utils import join
 
 
 class Sales_Dataset(DS):
@@ -35,12 +36,12 @@ class Sales_Dataset(DS):
         return d
 
     def __init__(self, dir_pth, is_train=True):
-        self.H = pd.read_csv(f"{dir_pth}/holidays_events.csv", index_col=False)
-        self.O = pd.read_csv(f"{dir_pth}/oil.csv", index_col=False)
-        self.S = pd.read_csv(f"{dir_pth}/stores.csv", index_col=False)
-        self.TR = pd.read_csv(f"{dir_pth}/train.csv", index_col=False)
-        self.TS = pd.read_csv(f"{dir_pth}/transactions.csv", index_col=False)
-        
+        self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
+        self.O = pd.read_csv(join(dir_pth, "oil.csv"), index_col=False)
+        self.S = pd.read_csv(join(dir_pth, "stores.csv"), index_col=False)
+        self.TR = pd.read_csv(join(dir_pth, "train.csv"), index_col=False)
+        self.TS = pd.read_csv(join(dir_pth, "transactions.csv"), index_col=False)
+
         # preprocess nominal data
         if is_train:
             len_dict = {
@@ -51,12 +52,17 @@ class Sales_Dataset(DS):
             type_encoding = self.get_nominal_dict(self.S.type)
             cluster_encoding = self.get_nominal_dict(self.S.cluster)
 
-            with open(f"{dir_pth}/len_dict.pkl", "wb") as f: pickle.dump(len_dict, f)
-            with open(f"{dir_pth}/family_encode.pkl", "wb") as f: pickle.dump(family_encoding, f)
-            with open(f"{dir_pth}/city_encode.pkl", "wb") as f: pickle.dump(city_encoding, f)
-            with open(f"{dir_pth}/type_encode.pkl", "wb") as f: pickle.dump(type_encoding, f)
-            with open(f"{dir_pth}/cluster_encode.pkl", "wb") as f: pickle.dump(cluster_encoding, f)
-        
+            with open(join(dir_pth, "len_dict.pkl"), "wb") as f:
+                pickle.dump(len_dict, f)
+            with open(join(dir_pth, "family_encode.pkl"), "wb") as f:
+                pickle.dump(family_encoding, f)
+            with open(join(dir_pth, "city_encode.pkl"), "wb") as f:
+                pickle.dump(city_encoding, f)
+            with open(join(dir_pth, "type_encode.pkl"), "wb") as f:
+                pickle.dump(type_encoding, f)
+            with open(join(dir_pth, "cluster_encode.pkl"), "wb") as f:
+                pickle.dump(cluster_encoding, f)
+
         self.family_len = len_dict["family"]
 
         self.TR.family = self.TR.family.map(family_encoding)
@@ -86,7 +92,7 @@ class Sales_Dataset(DS):
         self.TS.transactions = self.get_log_ret(
             self.TS, "transactions", ["store_nbr", "date"]
         )
-        
+
         self.O = self.O.asfreq("D")
         self.O = self.O.interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico", ["date"])
@@ -98,9 +104,10 @@ class Sales_Dataset(DS):
         return len(self.ids)
 
     def __getitem__(self, idx):
-        """Sample dimension: per (date, store_nbr): 
-            (family(N)) * (sale + onpromotion + oil + transaction + city + cluster + type)"""
-                 
+        """Sample dimension: per (date, store_nbr):
+        (family(N)) * (sale + onpromotion + oil + transaction + city + cluster + type)
+        """
+
         store_nbr, date = self.ids[idx]
         sample = torch.zeros((self.family_len, 7), dtype=torch.float32)
         sale_data = self.TR.loc[(store_nbr, date)]
