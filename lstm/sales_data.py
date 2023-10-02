@@ -35,6 +35,27 @@ class Sales_Dataset(DS):
 
         return d
 
+    def df_fix_float(df):
+        return df.replace({np.nan: 0, -np.inf: 0, np.inf: 1})
+
+    @staticmethod
+    def df_adjust_date(df: pd.DataFrame, date_a, date_b):
+        """
+        fix the range of dataframe as desired and interpolate the data in the missing dates
+        """
+        # expand
+        if df.index[0] > date_a:
+            df = pd.concat([pd.DataFrame(index=[date_a]), df])
+        if df.index[-1] < date_b:
+            df = pd.concat([df, pd.DataFrame(index=[date_b])])
+
+        # clamp
+        df = df[(df.index >= date_a) & (df.index <= date_b)]
+
+        # interpolate
+        df = df.asfreq("D").interpolate()
+        return Sales_Dataset.df_fix_float(df)
+
     def __init__(self, dir_pth, is_train=True):
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
         self.O = pd.read_csv(join(dir_pth, "oil.csv"), index_col=False)
@@ -97,65 +118,87 @@ class Sales_Dataset(DS):
 
         # construct the primary key
         self.ids = sorted(list(set(self.S.index)))
-        self.seq_len = len(set(self.TR.iloc[0]["date"]))
 
     def __len__(self):
         return len(self.ids)
 
-    def df_fix_float(df):
-        return df.replace({np.nan: 0, -np.inf: 0, np.inf: 1})
-
-    @staticmethod
-    def df_adjust_date(df: pd.DataFrame, date_a, date_b):
-        """
-        fix the range of dataframe as desired and interpolate the data in the missing dates
-        """
-        # expand
-        if df.index[0] > date_a:
-            df = pd.concat([pd.DataFrame(index=[date_a]), df])
-        if df.index[-1] < date_b:
-            df = pd.concat([df, pd.DataFrame(index=[date_b])])
-
-        # clamp
-        df = df[(df.index >= date_a) & (df.index <= date_b)]
-
-        # interpolate
-        df = df.asfreq("D").interpolate()
-        return Sales_Dataset.df_fix_float(df)
-
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
-        (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1)) * sequence_length
+        sequence_length * (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1))
 
-        (N+5) * L
+        L * (33*2 + 2 + 3)
         """
+
+        # prepare to build batch
         store_nbr = self.ids[idx]
-        sample = torch.zeros(self.seq_len, self.family_len + 5, dtype=torch.float32)
-        sale_data = self.TR.loc[store_nbr]
+        sale_data = self.TR.loc[store_nbr].set_index("date")
+        sale_data.index = pd.to_datetime(sale_data.index)
         start_date, end_date = (
-            pd.to_datetime(sale_data.iloc[0].date),
-            pd.to_datetime(sale_data.iloc[-1].date),
+            pd.to_datetime(sale_data.index[0]),
+            pd.to_datetime(sale_data.index[-1]),
         )
 
+        # transform the sale data
+        sale_df = pd.DataFrame(
+            index=pd.to_datetime(
+                sale_data[sale_data.family == sale_data.family[0]].index
+            )
+        )
+        # make a column for each family of product
+        for d in set(sale_data.family):
+            sale_df = pd.concat(
+                [
+                    sale_df,
+                    pd.DataFrame(
+                        {f"{d}_sales": sale_data[sale_data.family == d].sales}
+                    ),
+                ],
+                axis=1,
+            )
+            sale_df = pd.concat(
+                [
+                    sale_df,
+                    pd.DataFrame(
+                        {
+                            f"{d}_onpromotion": sale_data[
+                                sale_data.family == d
+                            ].onpromotion
+                        }
+                    ),
+                ],
+                axis=1,
+            )
+
         # fix the data on the missing dates
+        sale_df = self.df_adjust_date(sale_df, start_date, end_date)
         trans_data = self.TS.loc[store_nbr].set_index("date")
         trans_data.index = pd.to_datetime(trans_data.index)
         trans_data = self.df_adjust_date(trans_data, start_date, end_date)
         oil_data = self.df_adjust_date(self.O, start_date, end_date)
 
-        # transform the sale data
-        sale_df = pd.DataFrame({"date": oil_data.date})
-        sale_df.set_index(sale_data.date)
-        for d in set(sale_data.family):
-            sale_df[f"{d}_sales"] = sale_data[sale_data.family == d].sales
-            sale_df[f"{d}_onpromotion"] = sale_data[sale_data.family == d].onpromotion
+        # append other features
+        sale_df = pd.concat(
+            [sale_df, oil_data],
+            axis=1,
+        )
+        sale_df = pd.concat(
+            [sale_df, trans_data],
+            axis=1,
+        )
 
-        sale_data = self.df_adjust_date(sale_df, start_date, end_date)
+        # combine the features into batch
+        sample = torch.zeros(
+            sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
+        ).cuda()
         s_data = self.S.loc[(store_nbr)].to_numpy()
+        sample[:, : sale_df.shape[1]] = torch.tensor(sale_df.to_numpy())
+        sample[:, -3:] = torch.tensor(s_data)
 
-        # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
-        # sample[:, 2] = torch.tensor(oil_data)
-        # sample[:, 3] = torch.tensor(trans_data)
-        # sample[:, 4:] = torch.tensor(s_data)
+        return sample
 
-        # return sample.reshape(1, -1)
+    # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
+    # sample[:, 2] = torch.tensor(oil_data)
+    # sample[:, 3] = torch.tensor(trans_data)
+    # sample[:, 4:] = torch.tensor(s_data)
+
+    # return sample.reshape(1, -1)
