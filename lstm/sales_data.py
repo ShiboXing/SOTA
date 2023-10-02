@@ -12,7 +12,7 @@ from common_utils import join
 class Sales_Dataset(DS):
     def get_log_ret(self, df: pd.DataFrame, y_col: str, sort_keys=[]):
         """Calculate in-place the log returns of y_col"""
-        rets = np.log(df[y_col] / df[y_col].shift(1))
+        rets = np.log10(df[y_col] / df[y_col].shift(1))
         rets = rets.replace({np.nan: 0, -np.inf: 0, np.inf: 1})
 
         return rets
@@ -73,13 +73,13 @@ class Sales_Dataset(DS):
 
         # order the rows
         self.TR.sort_values(["store_nbr", "date", "family"], inplace=True)
-        self.TR.set_index(["store_nbr", "date"], inplace=True)
-        self.TR.drop("id")
+        self.TR.set_index("store_nbr", inplace=True)
+        self.TR.drop("id", axis=1, inplace=True)
         self.TS.sort_values(["store_nbr", "date"], inplace=True)
-        self.TS.set_index(["store_nbr", "date"], inplace=True)
-        self.O.date = pd.to_datetime(self.O.date)
+        self.TS.set_index(["store_nbr"], inplace=True)
         self.O.sort_values(["date"], inplace=True)
         self.O.set_index(["date"], inplace=True)
+        self.O.index = pd.to_datetime(self.O.index)
         self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
 
         # preprocess return data
@@ -92,35 +92,70 @@ class Sales_Dataset(DS):
         self.TS.transactions = self.get_log_ret(
             self.TS, "transactions", ["store_nbr", "date"]
         )
-
-        self.O = self.O.asfreq("D")
-        self.O = self.O.interpolate()
+        self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico", ["date"])
 
         # construct the primary key
-        self.ids = sorted(list(set(self.TR.index)))[1:]
+        self.ids = sorted(list(set(self.S.index)))
+        self.seq_len = len(set(self.TR.iloc[0]["date"]))
 
     def __len__(self):
         return len(self.ids)
 
+    def df_fix_float(df):
+        return df.replace({np.nan: 0, -np.inf: 0, np.inf: 1})
+
+    @staticmethod
+    def df_adjust_date(df: pd.DataFrame, date_a, date_b):
+        """
+        fix the range of dataframe as desired and interpolate the data in the missing dates
+        """
+        # expand
+        if df.index[0] > date_a:
+            df = pd.concat([pd.DataFrame(index=[date_a]), df])
+        if df.index[-1] < date_b:
+            df = pd.concat([df, pd.DataFrame(index=[date_b])])
+
+        # clamp
+        df = df[(df.index >= date_a) & (df.index <= date_b)]
+
+        # interpolate
+        df = df.asfreq("D").interpolate()
+        return Sales_Dataset.df_fix_float(df)
+
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
-        (family(N)) * (sale + onpromotion + oil + transaction + city + cluster + type)
-        """
+        (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1)) * sequence_length
 
-        store_nbr, date = self.ids[idx]
-        sample = torch.zeros((self.family_len, 7), dtype=torch.float32)
-        sale_data = self.TR.loc[(store_nbr, date)]
-        oil_data = self.O.loc[(date)].to_numpy()
-        if (store_nbr, date) not in self.TS.index:
-            trans_data = np.zeros((sample.shape[0]))
-        else:
-            trans_data = self.TS.loc[(store_nbr, date)].to_numpy()
+        (N+5) * L
+        """
+        store_nbr = self.ids[idx]
+        sample = torch.zeros(self.seq_len, self.family_len + 5, dtype=torch.float32)
+        sale_data = self.TR.loc[store_nbr]
+        start_date, end_date = (
+            pd.to_datetime(sale_data.iloc[0].date),
+            pd.to_datetime(sale_data.iloc[-1].date),
+        )
+
+        # fix the data on the missing dates
+        trans_data = self.TS.loc[store_nbr].set_index("date")
+        trans_data.index = pd.to_datetime(trans_data.index)
+        trans_data = self.df_adjust_date(trans_data, start_date, end_date)
+        oil_data = self.df_adjust_date(self.O, start_date, end_date)
+
+        # transform the sale data
+        sale_df = pd.DataFrame({"date": oil_data.date})
+        sale_df.set_index(sale_data.date)
+        for d in set(sale_data.family):
+            sale_df[f"{d}_sales"] = sale_data[sale_data.family == d].sales
+            sale_df[f"{d}_onpromotion"] = sale_data[sale_data.family == d].onpromotion
+
+        sale_data = self.df_adjust_date(sale_df, start_date, end_date)
         s_data = self.S.loc[(store_nbr)].to_numpy()
 
-        sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
-        sample[:, 2] = torch.tensor(oil_data)
-        sample[:, 3] = torch.tensor(trans_data)
-        sample[:, 4:] = torch.tensor(s_data)
+        # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
+        # sample[:, 2] = torch.tensor(oil_data)
+        # sample[:, 3] = torch.tensor(trans_data)
+        # sample[:, 4:] = torch.tensor(s_data)
 
-        return sample
+        # return sample.reshape(1, -1)
