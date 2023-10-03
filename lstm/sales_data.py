@@ -63,27 +63,27 @@ class Sales_Dataset(DS):
         self.S = pd.read_csv(join(dir_pth, "stores.csv"), index_col=False)
         self.TR = pd.read_csv(join(dir_pth, "train.csv"), index_col=False)
         self.TS = pd.read_csv(join(dir_pth, "transactions.csv"), index_col=False)
+        self.is_train = is_train
 
         # preprocess nominal data
-        if is_train:
-            len_dict = {
-                "family": len(set(self.TR["family"])),
-            }
-            family_encoding = self.get_nominal_dict(self.TR.family)
-            city_encoding = self.get_nominal_dict(self.S.city)
-            type_encoding = self.get_nominal_dict(self.S.type)
-            cluster_encoding = self.get_nominal_dict(self.S.cluster)
+        len_dict = {
+            "family": len(set(self.TR["family"])),
+        }
+        family_encoding = self.get_nominal_dict(self.TR.family)
+        city_encoding = self.get_nominal_dict(self.S.city)
+        type_encoding = self.get_nominal_dict(self.S.type)
+        cluster_encoding = self.get_nominal_dict(self.S.cluster)
 
-            with open(join(dir_pth, "len_dict.pkl"), "wb") as f:
-                pickle.dump(len_dict, f)
-            with open(join(dir_pth, "family_encode.pkl"), "wb") as f:
-                pickle.dump(family_encoding, f)
-            with open(join(dir_pth, "city_encode.pkl"), "wb") as f:
-                pickle.dump(city_encoding, f)
-            with open(join(dir_pth, "type_encode.pkl"), "wb") as f:
-                pickle.dump(type_encoding, f)
-            with open(join(dir_pth, "cluster_encode.pkl"), "wb") as f:
-                pickle.dump(cluster_encoding, f)
+        with open(join(dir_pth, "len_dict.pkl"), "wb") as f:
+            pickle.dump(len_dict, f)
+        with open(join(dir_pth, "family_encode.pkl"), "wb") as f:
+            pickle.dump(family_encoding, f)
+        with open(join(dir_pth, "city_encode.pkl"), "wb") as f:
+            pickle.dump(city_encoding, f)
+        with open(join(dir_pth, "type_encode.pkl"), "wb") as f:
+            pickle.dump(type_encoding, f)
+        with open(join(dir_pth, "cluster_encode.pkl"), "wb") as f:
+            pickle.dump(cluster_encoding, f)
 
         self.family_len = len_dict["family"]
 
@@ -146,7 +146,7 @@ class Sales_Dataset(DS):
             )
         )
         # make a column for each family of product
-        for d in set(sale_data.family):
+        for d in sorted(list(set(sale_data.family))):
             sale_df = pd.concat(
                 [
                     sale_df,
@@ -197,12 +197,15 @@ class Sales_Dataset(DS):
         )
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
-        return (
-            sample[:-1],
-            torch.tensor(sale_df.filter(like="sales").to_numpy(), dtype=torch.float32)[
-                1:
-            ],
-        )
+        if self.is_train:
+            return (
+                sample[:-16],
+                torch.tensor(
+                    sale_df.filter(like="sales").to_numpy(), dtype=torch.float32
+                )[16:],
+            )
+        else:
+            return sample, None
 
     # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
     # sample[:, 2] = torch.tensor(oil_data)
