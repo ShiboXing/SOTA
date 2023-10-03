@@ -12,10 +12,11 @@ from common_utils import join
 class Sales_Dataset(DS):
     def get_log_ret(self, df: pd.DataFrame, y_col: str, sort_keys=[]):
         """Calculate in-place the log returns of y_col"""
+        np.seterr(divide="ignore")  # suppress divide by zero
         rets = np.log10(df[y_col] / df[y_col].shift(1))
-        rets = rets.replace({np.nan: 0, -np.inf: 0, np.inf: 1})
+        np.seterr(divide="warn")
 
-        return rets
+        return Sales_Dataset.df_fix_float(rets)
 
     def z_series(self, df: pd.Series, clip=False):
         """Normalize dataframe series while eliminating the effect of zeros"""
@@ -141,7 +142,7 @@ class Sales_Dataset(DS):
         # transform the sale data
         sale_df = pd.DataFrame(
             index=pd.to_datetime(
-                sale_data[sale_data.family == sale_data.family[0]].index
+                sale_data[sale_data.family == sale_data.iloc[0].family].index
             )
         )
         # make a column for each family of product
@@ -191,10 +192,17 @@ class Sales_Dataset(DS):
             sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
         ).cuda()
         s_data = self.S.loc[(store_nbr)].to_numpy()
-        sample[:, : sale_df.shape[1]] = torch.tensor(sale_df.to_numpy())
-        sample[:, -3:] = torch.tensor(s_data)
+        sample[:, : sale_df.shape[1]] = torch.tensor(
+            sale_df.to_numpy(), dtype=torch.float32
+        )
+        sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
-        return sample
+        return (
+            sample[:-1],
+            torch.tensor(sale_df.filter(like="sales").to_numpy(), dtype=torch.float32)[
+                1:
+            ],
+        )
 
     # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
     # sample[:, 2] = torch.tensor(oil_data)
