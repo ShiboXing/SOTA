@@ -10,7 +10,7 @@ from common_utils import join
 
 
 class Sales_Dataset(DS):
-    def get_log_ret(self, df: pd.DataFrame, y_col: str, sort_keys=[]):
+    def get_log_ret(self, df: pd.DataFrame, y_col: str):
         """Calculate in-place the log returns of y_col"""
         np.seterr(divide="ignore")  # suppress divide by zero
         rets = np.log10(df[y_col] / df[y_col].shift(1))
@@ -66,28 +66,24 @@ class Sales_Dataset(DS):
         self.is_train = is_train
 
         # preprocess nominal data
-        len_dict = {
-            "family": len(set(self.TR["family"])),
-        }
-        family_encoding = self.get_nominal_dict(self.TR.family)
+        self.family_set = set(self.TR["family"])
+        # self.family_encoding = self.get_nominal_dict(self.TR.family)
         city_encoding = self.get_nominal_dict(self.S.city)
         type_encoding = self.get_nominal_dict(self.S.type)
         cluster_encoding = self.get_nominal_dict(self.S.cluster)
 
-        with open(join(dir_pth, "len_dict.pkl"), "wb") as f:
-            pickle.dump(len_dict, f)
-        with open(join(dir_pth, "family_encode.pkl"), "wb") as f:
-            pickle.dump(family_encoding, f)
-        with open(join(dir_pth, "city_encode.pkl"), "wb") as f:
-            pickle.dump(city_encoding, f)
-        with open(join(dir_pth, "type_encode.pkl"), "wb") as f:
-            pickle.dump(type_encoding, f)
-        with open(join(dir_pth, "cluster_encode.pkl"), "wb") as f:
-            pickle.dump(cluster_encoding, f)
+        # with open(join(dir_pth, "len_dict.pkl"), "wb") as f:
+        #     pickle.dump(len_dict, f)
+        # with open(join(dir_pth, "family_encode.pkl"), "wb") as f:
+        #     pickle.dump(self.family_encoding, f)
+        # with open(join(dir_pth, "city_encode.pkl"), "wb") as f:
+        #     pickle.dump(city_encoding, f)
+        # with open(join(dir_pth, "type_encode.pkl"), "wb") as f:
+        #     pickle.dump(type_encoding, f)
+        # with open(join(dir_pth, "cluster_encode.pkl"), "wb") as f:
+        #     pickle.dump(cluster_encoding, f)
 
-        self.family_len = len_dict["family"]
-
-        self.TR.family = self.TR.family.map(family_encoding)
+        # self.TR.family = self.TR.family.map(self.family_encoding)
         self.S.city = self.S.city.map(city_encoding)
         self.S.type = self.S.type.map(type_encoding)
         self.S.cluster = self.S.cluster.map(cluster_encoding)
@@ -105,17 +101,11 @@ class Sales_Dataset(DS):
         self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
 
         # preprocess return data
-        self.TR.sales = self.get_log_ret(
-            self.TR, "sales", ["store_nbr", "family", "date"]
-        )
-        self.TR.onpromotion = self.get_log_ret(
-            self.TR, "onpromotion", ["store_nbr", "family", "date"]
-        )
-        self.TS.transactions = self.get_log_ret(
-            self.TS, "transactions", ["store_nbr", "date"]
-        )
+        self.TR.sales = self.get_log_ret(self.TR, "sales")
+        self.TR.onpromotion = self.get_log_ret(self.TR, "onpromotion")
+        self.TS.transactions = self.get_log_ret(self.TS, "transactions")
         self.O = self.O.asfreq("D").interpolate()
-        self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico", ["date"])
+        self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
 
         # construct the primary key
         self.ids = sorted(list(set(self.S.index)))
@@ -186,12 +176,12 @@ class Sales_Dataset(DS):
             [sale_df, trans_data],
             axis=1,
         )
+        s_data = self.S.loc[(store_nbr)].to_numpy()
 
         # combine the features into batch
         sample = torch.zeros(
             sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
         ).cuda()
-        s_data = self.S.loc[(store_nbr)].to_numpy()
         sample[:, : sale_df.shape[1]] = torch.tensor(
             sale_df.to_numpy(), dtype=torch.float32
         )
@@ -205,7 +195,7 @@ class Sales_Dataset(DS):
                 )[16:],
             )
         else:
-            return sample, None
+            return sample, torch.tensor(store_nbr)
 
     # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
     # sample[:, 2] = torch.tensor(oil_data)
