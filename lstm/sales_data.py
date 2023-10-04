@@ -10,6 +10,13 @@ from common_utils import join
 
 
 class Sales_Dataset(DS):
+    @staticmethod
+    def log_ret_2_sales(rets, base_price):
+        sales = np.array([base_price])
+        for r in rets:
+            sales = np.append(sales, 10**r * sales[-1])
+        return sales[1:]
+
     def get_log_ret(self, df: pd.DataFrame, y_col: str):
         """Calculate in-place the log returns of y_col"""
         np.seterr(divide="ignore")  # suppress divide by zero
@@ -66,6 +73,7 @@ class Sales_Dataset(DS):
         self.is_train = is_train
 
         # preprocess nominal data
+        self.store_nbrs = set(self.TR["store_nbr"])
         self.family_set = set(self.TR["family"])
         # self.family_encoding = self.get_nominal_dict(self.TR.family)
         city_encoding = self.get_nominal_dict(self.S.city)
@@ -90,15 +98,18 @@ class Sales_Dataset(DS):
         self.S = self.S[["store_nbr", "city", "cluster", "type"]]
 
         # order the rows
-        self.TR.sort_values(["store_nbr", "date", "family"], inplace=True)
-        self.TR.set_index("store_nbr", inplace=True)
-        self.TR.drop("id", axis=1, inplace=True)
         self.TS.sort_values(["store_nbr", "date"], inplace=True)
         self.TS.set_index(["store_nbr"], inplace=True)
+        self.TR.drop("id", axis=1, inplace=True)
+        self.TR.sort_values(["store_nbr", "family", "date"], inplace=True)
+        self.TR.set_index(["store_nbr"], inplace=True)
         self.O.sort_values(["date"], inplace=True)
         self.O.set_index(["date"], inplace=True)
         self.O.index = pd.to_datetime(self.O.index)
         self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
+
+        # store the base sales for inference purpose
+        self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
 
         # preprocess return data
         self.TR.sales = self.get_log_ret(self.TR, "sales")
@@ -195,7 +206,7 @@ class Sales_Dataset(DS):
                 )[16:],
             )
         else:
-            return sample, torch.tensor(store_nbr)
+            return sample[16:], torch.tensor(store_nbr)
 
     # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
     # sample[:, 2] = torch.tensor(oil_data)
