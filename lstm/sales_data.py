@@ -14,7 +14,7 @@ class Sales_Dataset(DS):
     def log_ret_2_sales(rets, base_price):
         sales = np.array([base_price])
         for r in rets:
-            sales = np.append(sales, 10**r * sales[-1])
+            sales = np.append(sales, 10 ** r * sales[-1])
         return sales[1:]
 
     def get_log_ret(self, df: pd.DataFrame, y_col: str):
@@ -29,10 +29,7 @@ class Sales_Dataset(DS):
         """Normalize dataframe series while eliminating the effect of zeros"""
         # df_tmp = df[df != 0.0]
         if clip:
-            df = df.clip(
-                lower=df.mean() - 2 * df.std(),
-                upper=df.mean() + 2 * df.std(),
-            )
+            df = df.clip(lower=df.mean() - 2 * df.std(), upper=df.mean() + 2 * df.std())
         return (df - df.mean()) / df.std()
 
     def get_nominal_dict(self, df: pd.Series):
@@ -179,14 +176,8 @@ class Sales_Dataset(DS):
         oil_data = self.df_adjust_date(self.O, start_date, end_date)
 
         # append other features
-        sale_df = pd.concat(
-            [sale_df, oil_data],
-            axis=1,
-        )
-        sale_df = pd.concat(
-            [sale_df, trans_data],
-            axis=1,
-        )
+        sale_df = pd.concat([sale_df, oil_data], axis=1)
+        sale_df = pd.concat([sale_df, trans_data], axis=1)
         s_data = self.S.loc[(store_nbr)].to_numpy()
 
         # combine the features into batch
