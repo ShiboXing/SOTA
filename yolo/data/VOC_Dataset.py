@@ -81,8 +81,9 @@ class VOC_Dataset(DS):
         img_file = self.imgs[ind]
         img_id = img_file.split(".")[0]
         label_file = f"{img_id}.xml"
-        img_pth, ant_pth = join(self.img_root, img_file), join(
-            self.ant_root, label_file
+        img_pth, ant_pth = (
+            join(self.img_root, img_file),
+            join(self.ant_root, label_file),
         )
 
         img = Image.open(img_pth)

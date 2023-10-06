@@ -80,11 +80,7 @@ class YOLOv1(nn.Module):
             nn.LeakyReLU(negative_slope=0.1),
         ]
 
-        fc1 = [
-            nn.Linear(50176, 4096),
-            nn.LeakyReLU(negative_slope=0.1),
-            nn.Dropout(),
-        ]
+        fc1 = [nn.Linear(50176, 4096), nn.LeakyReLU(negative_slope=0.1), nn.Dropout()]
 
         fc2 = [
             nn.Linear(4096, 1470),
