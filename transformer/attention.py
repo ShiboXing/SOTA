@@ -5,7 +5,6 @@ import torch
 from torch import nn
 
 
-
 def masked_softmax(X, valid_lens):  #@save
     """Perform softmax operation by masking elements on the last axis."""
     # X: 3D tensor, valid_lens: 1D or 2D tensor
@@ -119,8 +118,7 @@ class MultiHeadAttention(nn.Module):  #@save
         if valid_lens is not None:
             # On axis 0, copy the first item (scalar or vector) for num_heads
             # times, then copy the next item, and so on
-            valid_lens = torch.repeat_interleave(
-                valid_lens, repeats=self.num_heads, dim=0)
+            valid_lens = torch.repeat_interleave(valid_lens, repeats=self.num_heads, dim=0)
 
         # Shape of output: (batch_size * num_heads, no. of queries,
         # num_hiddens / num_heads)
