@@ -1,7 +1,7 @@
 .DS_Store
 .vscode
 logs/
-sagemaker_helper.py
 __pycache__
 .env
 *.pkl
+*.o
