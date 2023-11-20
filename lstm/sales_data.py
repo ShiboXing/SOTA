@@ -14,7 +14,7 @@ class Sales_Dataset(DS):
     def log_ret_2_sales(rets, base_price):
         sales = np.array([base_price])
         for r in rets:
-            sales = np.append(sales, 10 ** r * sales[-1])
+            sales = np.append(sales, 10**r * sales[-1])
         return sales[1:]
 
     def get_log_ret(self, df: pd.DataFrame, y_col: str):
