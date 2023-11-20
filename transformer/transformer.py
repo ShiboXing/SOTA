@@ -2,8 +2,10 @@ from torch import nn
 from attention import MultiHeadAttention, PositionalEncoding
 import torch
 
-class PositionWiseFFN(nn.Module):  #@save
+
+class PositionWiseFFN(nn.Module):  # @save
     """The positionwise feed-forward network."""
+
     def __init__(self, ffn_num_hiddens, ffn_num_outputs):
         super().__init__()
         self.dense1 = nn.LazyLinear(ffn_num_hiddens)
@@ -12,9 +14,11 @@ class PositionWiseFFN(nn.Module):  #@save
 
     def forward(self, X):
         return self.dense2(self.relu(self.dense1(X)))
-    
-class AddNorm(nn.Module):  #@save
+
+
+class AddNorm(nn.Module):  # @save
     """The residual connection followed by layer normalization."""
+
     def __init__(self, norm_shape, dropout):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
@@ -23,10 +27,13 @@ class AddNorm(nn.Module):  #@save
     def forward(self, X, Y):
         return self.ln(self.dropout(Y) + X)
 
-class TransformerEncoderBlock(nn.Module):  #@save
+
+class TransformerEncoderBlock(nn.Module):  # @save
     """The Transformer encoder block."""
-    def __init__(self, num_hiddens, ffn_num_hiddens, num_heads, dropout,
-                 use_bias=False):
+
+    def __init__(
+        self, num_hiddens, ffn_num_hiddens, num_heads, dropout, use_bias=False
+    ):
         super().__init__()
         self.attention = MultiHeadAttention(num_hiddens, num_heads, dropout, use_bias)
         self.addnorm1 = AddNorm(num_hiddens, dropout)
@@ -36,42 +43,54 @@ class TransformerEncoderBlock(nn.Module):  #@save
     def forward(self, X, valid_lens):
         Y = self.addnorm1(X, self.attention(X, X, X, valid_lens))
         return self.addnorm2(Y, self.ffn(Y))
-    
-class TransformerEncoder(nn.Module):  #@save
+
+
+class TransformerEncoder(nn.Module):  # @save
     """The Transformer encoder."""
-    def __init__(self, vocab_size, num_hiddens, ffn_num_hiddens,
-                 num_heads, num_blks, dropout, use_bias=False):
+
+    def __init__(
+        self,
+        vocab_size,
+        num_hiddens,
+        ffn_num_hiddens,
+        num_heads,
+        num_blks,
+        dropout,
+        use_bias=False,
+    ):
         super().__init__()
         self.num_hiddens = num_hiddens
         self.embedding = nn.Embedding(vocab_size, num_hiddens)
         self.pos_encoding = PositionalEncoding(num_hiddens, dropout)
         self.blks = nn.Sequential()
         for i in range(num_blks):
-            self.blks.add_module("block"+str(i), TransformerEncoderBlock(
-                num_hiddens, ffn_num_hiddens, num_heads, dropout, use_bias))
+            self.blks.add_module(
+                "block" + str(i),
+                TransformerEncoderBlock(
+                    num_hiddens, ffn_num_hiddens, num_heads, dropout, use_bias
+                ),
+            )
 
     def forward(self, X, valid_lens):
         # Since positional encoding values are between -1 and 1, the embedding
         # values are multiplied by the square root of the embedding dimension
         # to rescale before they are summed up
-        X = self.pos_encoding(self.embedding(X) * self.num_hiddens ** 0.5)
+        X = self.pos_encoding(self.embedding(X) * self.num_hiddens**0.5)
         self.attention_weights = [None] * len(self.blks)
         for i, blk in enumerate(self.blks):
             X = blk(X, valid_lens)
             self.attention_weights[i] = blk.attention.attention.attention_weights
         return X
-    
+
 
 class TransformerDecoderBlock(nn.Module):
     # The i-th block in the Transformer decoder
     def __init__(self, num_hiddens, ffn_num_hiddens, num_heads, dropout, i):
         super().__init__()
         self.i = i
-        self.attention1 = MultiHeadAttention(num_hiddens, num_heads,
-                                                 dropout)
+        self.attention1 = MultiHeadAttention(num_hiddens, num_heads, dropout)
         self.addnorm1 = AddNorm(num_hiddens, dropout)
-        self.attention2 = MultiHeadAttention(num_hiddens, num_heads,
-                                                 dropout)
+        self.attention2 = MultiHeadAttention(num_hiddens, num_heads, dropout)
         self.addnorm2 = AddNorm(num_hiddens, dropout)
         self.ffn = PositionWiseFFN(ffn_num_hiddens, num_hiddens)
         self.addnorm3 = AddNorm(num_hiddens, dropout)
@@ -92,8 +111,9 @@ class TransformerDecoderBlock(nn.Module):
             batch_size, num_steps, _ = X.shape
             # Shape of dec_valid_lens: (batch_size, num_steps), where every
             # row is [1, 2, ..., num_steps]
-            dec_valid_lens = torch.arange(
-                1, num_steps + 1, device=X.device).repeat(batch_size, 1)
+            dec_valid_lens = torch.arange(1, num_steps + 1, device=X.device).repeat(
+                batch_size, 1
+            )
         else:
             dec_valid_lens = None
         # Self-attention
@@ -104,11 +124,12 @@ class TransformerDecoderBlock(nn.Module):
         Y2 = self.attention2(Y, enc_outputs, enc_outputs, enc_valid_lens)
         Z = self.addnorm2(Y, Y2)
         return self.addnorm3(Z, self.ffn(Z)), state
-    
+
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, vocab_size, num_hiddens, ffn_num_hiddens, num_heads,
-                 num_blks, dropout):
+    def __init__(
+        self, vocab_size, num_hiddens, ffn_num_hiddens, num_heads, num_blks, dropout
+    ):
         super().__init__()
         self.num_hiddens = num_hiddens
         self.num_blks = num_blks
@@ -116,16 +137,20 @@ class TransformerDecoder(nn.Module):
         self.pos_encoding = PositionalEncoding(num_hiddens, dropout)
         self.blks = nn.Sequential()
         for i in range(num_blks):
-            self.blks.add_module("block"+str(i), TransformerDecoderBlock(
-                num_hiddens, ffn_num_hiddens, num_heads, dropout, i))
+            self.blks.add_module(
+                "block" + str(i),
+                TransformerDecoderBlock(
+                    num_hiddens, ffn_num_hiddens, num_heads, dropout, i
+                ),
+            )
         self.dense = nn.LazyLinear(vocab_size)
 
     def init_state(self, enc_outputs, enc_valid_lens):
         return [enc_outputs, enc_valid_lens, [None] * self.num_blks]
 
     def forward(self, X, state):
-        X = self.pos_encoding(self.embedding(X) * self.num_hiddens ** 0.5)
-        self._attention_weights = [[None] * len(self.blks) for _ in range (2)]
+        X = self.pos_encoding(self.embedding(X) * self.num_hiddens**0.5)
+        self._attention_weights = [[None] * len(self.blks) for _ in range(2)]
         for i, blk in enumerate(self.blks):
             X, state = blk(X, state)
             # Decoder self-attention weights

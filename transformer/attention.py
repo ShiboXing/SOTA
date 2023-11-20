@@ -5,13 +5,16 @@ import torch
 from torch import nn
 
 
-def masked_softmax(X, valid_lens):  #@save
+def masked_softmax(X, valid_lens):  # @save
     """Perform softmax operation by masking elements on the last axis."""
+
     # X: 3D tensor, valid_lens: 1D or 2D tensor
     def _sequence_mask(X, valid_len, value=0):
         maxlen = X.size(1)
-        mask = torch.arange((maxlen), dtype=torch.float32,
-                            device=X.device)[None, :] < valid_len[:, None]
+        mask = (
+            torch.arange((maxlen), dtype=torch.float32, device=X.device)[None, :]
+            < valid_len[:, None]
+        )
         X[~mask] = value
         return X
 
@@ -29,8 +32,9 @@ def masked_softmax(X, valid_lens):  #@save
         return nn.functional.softmax(X.reshape(shape), dim=-1)
 
 
-class DotProductAttention(nn.Module):  #@save
+class DotProductAttention(nn.Module):  # @save
     """Scaled dot product attention."""
+
     def __init__(self, dropout):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
@@ -42,14 +46,14 @@ class DotProductAttention(nn.Module):  #@save
     def forward(self, queries, keys, values, valid_lens=None):
         d = queries.shape[-1]
         # Swap the last two dimensions of keys with keys.transpose(1, 2)
-        scores = torch.bmm(queries, keys.transpose(1, 2)) / d ** 0.5
+        scores = torch.bmm(queries, keys.transpose(1, 2)) / d**0.5
         self.attention_weights = masked_softmax(scores, valid_lens)
         return torch.bmm(self.dropout(self.attention_weights), values)
 
 
-
-class AdditiveAttention(nn.Module):  #@save
+class AdditiveAttention(nn.Module):  # @save
     """Additive attention."""
+
     def __init__(self, num_hiddens, dropout, **kwargs):
         super(AdditiveAttention, self).__init__(**kwargs)
         self.W_k = nn.LazyLinear(num_hiddens, bias=False)
@@ -74,8 +78,9 @@ class AdditiveAttention(nn.Module):  #@save
         return torch.bmm(self.dropout(self.attention_weights), values)
 
 
-class MultiHeadAttention(nn.Module):  #@save
+class MultiHeadAttention(nn.Module):  # @save
     """Multi-head attention."""
+
     def __init__(self, num_hiddens, num_heads, dropout, bias=False, **kwargs):
         super().__init__()
         self.num_heads = num_heads
@@ -84,13 +89,13 @@ class MultiHeadAttention(nn.Module):  #@save
         self.W_k = nn.LazyLinear(num_hiddens, bias=bias)
         self.W_v = nn.LazyLinear(num_hiddens, bias=bias)
         self.W_o = nn.LazyLinear(num_hiddens, bias=bias)
-        
+
     def transpose_output(self, X):
         """Reverse the operation of transpose_qkv."""
         X = X.reshape(-1, self.num_heads, X.shape[1], X.shape[2])
         X = X.permute(0, 2, 1, 3)
         return X.reshape(X.shape[0], X.shape[1], -1)
-    
+
     def transpose_qkv(self, X):
         """Transposition for parallel computation of multiple attention heads."""
         # Shape of input X: (batch_size, no. of queries or key-value pairs,
@@ -118,7 +123,9 @@ class MultiHeadAttention(nn.Module):  #@save
         if valid_lens is not None:
             # On axis 0, copy the first item (scalar or vector) for num_heads
             # times, then copy the next item, and so on
-            valid_lens = torch.repeat_interleave(valid_lens, repeats=self.num_heads, dim=0)
+            valid_lens = torch.repeat_interleave(
+                valid_lens, repeats=self.num_heads, dim=0
+            )
 
         # Shape of output: (batch_size * num_heads, no. of queries,
         # num_hiddens / num_heads)
@@ -128,19 +135,20 @@ class MultiHeadAttention(nn.Module):  #@save
         return self.W_o(output_concat)
 
 
-class PositionalEncoding(nn.Module):  #@save
+class PositionalEncoding(nn.Module):  # @save
     """Positional encoding."""
+
     def __init__(self, num_hiddens, dropout, max_len=1000):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
         # Create a long enough P
         self.P = torch.zeros((1, max_len, num_hiddens))
-        X = torch.arange(max_len, dtype=torch.float32).reshape(
-            -1, 1) / torch.pow(10000, torch.arange(
-            0, num_hiddens, 2, dtype=torch.float32) / num_hiddens)
+        X = torch.arange(max_len, dtype=torch.float32).reshape(-1, 1) / torch.pow(
+            10000, torch.arange(0, num_hiddens, 2, dtype=torch.float32) / num_hiddens
+        )
         self.P[:, :, 0::2] = torch.sin(X)
         self.P[:, :, 1::2] = torch.cos(X)
 
     def forward(self, X):
-        X = X + self.P[:, :X.shape[1], :].to(X.device)
+        X = X + self.P[:, : X.shape[1], :].to(X.device)
         return self.dropout(X)
