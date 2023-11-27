@@ -64,6 +64,7 @@ std::vector<torch::Tensor> lltm_backward(
     torch::Tensor gate_weights,
     torch::Tensor weights)
 {
+    cout << "lltm backward called" << "\n";
     auto d_output_gate = torch::tanh(new_cell) * grad_h;
     auto d_tanh_new_cell = output_gate * grad_h;
     auto d_new_cell = d_tanh(new_cell) * d_tanh_new_cell + grad_cell;
