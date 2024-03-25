@@ -10,3 +10,6 @@ build
 
 # jupyter
 .ipynb_checkpoints
+
+# data
+*.csv
