@@ -7,3 +7,6 @@ __pycache__
 *.o
 *.so
 build
+
+# jupyter
+.ipynb_checkpoints
