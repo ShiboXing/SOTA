@@ -62,6 +62,12 @@ def encode_labels(y):
     return y_encoded
 
 
+def decode_labels(le_labels, encoded_labels):
+    decoded_labels = le_labels.inverse_transform(encoded_labels)
+
+    return decoded_labels
+
+
 def check_data_balance(y):
     label_dist = Counter(y)
     
