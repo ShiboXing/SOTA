@@ -15,7 +15,7 @@ class AlexNetBlock(nn.Module):
         super(AlexNetBlock, self).__init__()
 
         self.conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.relu = nn.ReLu()
+        self.relu = nn.ReLU()
         self.pool_and_norm = pool_and_norm
         if self.pool_and_norm:
             self.norm = nn.LocalResponseNorm(size=5, alpha=0.0001, beta=0.75, k=2)
@@ -63,6 +63,3 @@ class AlexNet(nn.Module):
         x = self.classication_layer(x)
 
         return x
-
-
-       
