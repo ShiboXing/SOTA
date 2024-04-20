@@ -42,7 +42,7 @@ class AlexNet(nn.Module):
         self.block5 = AlexNetBlock(384, 256, 3, 1, 1, True)
 
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(9216, 4096)
+        self.fc1 = nn.LazyLinear(4096)
         self.dropout1 = nn.Dropout(0.5)
         self.fc2 = nn.Linear(4096, 4096)
         self.dropout2 = nn.Dropout(0.5)
