@@ -6,10 +6,10 @@ __pycache__
 *.pkl
 *.o
 *.so
-build
 
 # jupyter
 .ipynb_checkpoints
 
 # data
-*.csv
+build/
+data/
