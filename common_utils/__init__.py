@@ -45,9 +45,8 @@ def decompress_file(pth, out_dir):
         print("extraction path exists: ", out_dir)
         return
 
-    dir_pth = os.path.dirname(pth)
     if IS_UNIX:
-        sp.run(f"unzip {pth}", shell=True, check=True)
+        sp.run(f"unzip {pth} -d {out_dir}", shell=True, check=True)
     else:
         print(
             sp.run(
