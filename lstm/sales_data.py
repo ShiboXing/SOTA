@@ -61,7 +61,7 @@ class Sales_Dataset(DS):
         df = df.asfreq("D").interpolate()
         return Sales_Dataset.df_fix_float(df)
 
-    def __init__(self, dir_pth, is_train=True):
+    def __init__(self, dir_pth, seq_len=500, is_train=True):
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
         self.O = pd.read_csv(join(dir_pth, "oil.csv"), index_col=False)
         self.S = pd.read_csv(join(dir_pth, "stores.csv"), index_col=False)
@@ -105,6 +105,12 @@ class Sales_Dataset(DS):
         self.O.index = pd.to_datetime(self.O.index)
         self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
 
+        # get statistics
+        self.sample_seq_len = seq_len
+        min_date, max_date = min(self.TR.date), max(self.TR.date)
+        self.num_days = len(pd.date_range(start=min_date, end=max_date))
+        self.num_store_samples = self.num_days - self.sample_seq_len + 1 - 16 # predict T+16
+
         # store the base sales for inference purpose
         self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
 
@@ -119,7 +125,8 @@ class Sales_Dataset(DS):
         self.ids = sorted(list(set(self.S.index)))
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.ids) * self.num_store_samples
+
 
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
@@ -129,7 +136,8 @@ class Sales_Dataset(DS):
         """
 
         # prepare to build batch
-        store_nbr = self.ids[idx]
+        store_id, local_id = idx // self.num_store_samples, idx % self.num_store_samples
+        store_nbr = self.ids[store_id]
         sale_data = self.TR.loc[store_nbr].set_index("date")
         sale_data.index = pd.to_datetime(sale_data.index)
         start_date, end_date = (
@@ -189,15 +197,18 @@ class Sales_Dataset(DS):
         )
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
+        """method 1"""
+        start_t, end_t = local_id, local_id + self.sample_seq_len
         if self.is_train:
             return (
-                sample[:-16],
+                sample[start_t:end_t],
                 torch.tensor(
                     sale_df.filter(like="sales").to_numpy(), dtype=torch.float32
-                )[16:],
+                )[start_t+16:end_t+16],
             )
-        else:
-            return sample[16:], torch.tensor(store_nbr)
+
+
+
 
     # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
     # sample[:, 2] = torch.tensor(oil_data)
