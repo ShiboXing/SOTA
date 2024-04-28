@@ -66,6 +66,7 @@ class Sales_Dataset(DS):
         self.O = pd.read_csv(join(dir_pth, "oil.csv"), index_col=False)
         self.S = pd.read_csv(join(dir_pth, "stores.csv"), index_col=False)
         self.TR = pd.read_csv(join(dir_pth, "train.csv"), index_col=False)
+        self.TT = pd.read_csv(join(dir_pth, "test.csv"), index_col=False)
         self.TS = pd.read_csv(join(dir_pth, "transactions.csv"), index_col=False)
         self.is_train = is_train
 
@@ -77,18 +78,6 @@ class Sales_Dataset(DS):
         type_encoding = self.get_nominal_dict(self.S.type)
         cluster_encoding = self.get_nominal_dict(self.S.cluster)
 
-        # with open(join(dir_pth, "len_dict.pkl"), "wb") as f:
-        #     pickle.dump(len_dict, f)
-        # with open(join(dir_pth, "family_encode.pkl"), "wb") as f:
-        #     pickle.dump(self.family_encoding, f)
-        # with open(join(dir_pth, "city_encode.pkl"), "wb") as f:
-        #     pickle.dump(city_encoding, f)
-        # with open(join(dir_pth, "type_encode.pkl"), "wb") as f:
-        #     pickle.dump(type_encoding, f)
-        # with open(join(dir_pth, "cluster_encode.pkl"), "wb") as f:
-        #     pickle.dump(cluster_encoding, f)
-
-        # self.TR.family = self.TR.family.map(self.family_encoding)
         self.S.city = self.S.city.map(city_encoding)
         self.S.type = self.S.type.map(type_encoding)
         self.S.cluster = self.S.cluster.map(cluster_encoding)
