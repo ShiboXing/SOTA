@@ -109,7 +109,7 @@ class Sales_Dataset(DS):
         self.sample_seq_len = seq_len
         min_date, max_date = min(self.TR.date), max(self.TR.date)
         self.num_days = len(pd.date_range(start=min_date, end=max_date))
-        self.num_store_samples = self.num_days - self.sample_seq_len + 1 - 16 # predict T+16
+        self.num_store_samples = self.num_days - self.sample_seq_len # predict T+1
 
         # store the base sales for inference purpose
         self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
@@ -197,15 +197,16 @@ class Sales_Dataset(DS):
         )
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
-        """method 1"""
         start_t, end_t = local_id, local_id + self.sample_seq_len
         if self.is_train:
             return (
                 sample[start_t:end_t],
                 torch.tensor(
                     sale_df.filter(like="sales").to_numpy(), dtype=torch.float32
-                )[start_t+16:end_t+16],
+                )[start_t+1:end_t+1],
             )
+        else:
+            return sample[start_t:end_t], torch.tensor(store_nbr)
 
 
 
