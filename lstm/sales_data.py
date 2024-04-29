@@ -187,12 +187,13 @@ class Sales_Dataset(DS):
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
         start_t, end_t = local_id, local_id + self.sample_seq_len
+        cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
         if self.is_train:
             return (
                 sample[start_t:end_t],
                 torch.tensor(
-                    sale_df.filter(like="sales").to_numpy(), dtype=torch.float32
-                )[start_t+1:end_t+1],
+                    sale_df[cols].to_numpy(), dtype=torch.float32
+                )[start_t+1:end_t+1]
             )
         else:
             return sample[start_t:end_t], torch.tensor(store_nbr)
