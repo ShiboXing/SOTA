@@ -89,6 +89,9 @@ class Sales_Dataset(DS):
         self.TR.drop("id", axis=1, inplace=True)
         self.TR.sort_values(["store_nbr", "family", "date"], inplace=True)
         self.TR.set_index(["store_nbr"], inplace=True)
+        self.TT.drop("id", axis=1, inplace=True)
+        self.TT.sort_values(["store_nbr", "family", "date"], inplace=True)
+        self.TT.set_index(["store_nbr"], inplace=True)
         self.O.sort_values(["date"], inplace=True)
         self.O.set_index(["date"], inplace=True)
         self.O.index = pd.to_datetime(self.O.index)
@@ -98,7 +101,10 @@ class Sales_Dataset(DS):
         self.sample_seq_len = seq_len
         min_date, max_date = min(self.TR.date), max(self.TR.date)
         self.num_days = len(pd.date_range(start=min_date, end=max_date))
-        self.num_store_samples = self.num_days - self.sample_seq_len # predict T+1
+        if self.is_train:
+            self.num_store_samples = self.num_days - self.sample_seq_len # predict T+1
+        else:
+            self.num_store_samples = 16 
 
         # store the base sales for inference purpose
         self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
@@ -113,21 +119,23 @@ class Sales_Dataset(DS):
         # construct the primary key
         self.ids = sorted(list(set(self.S.index)))
 
+
     def __len__(self):
         return len(self.ids) * self.num_store_samples
-
-
-    def __getitem__(self, idx):
+    
+    
+    def _get_sample(self, store_id, local_id, is_train):
+        
         """Sample dimension: per (date, store_nbr):
         sequence_length * (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1))
 
         L * (33*2 + 2 + 3)
-        """
-
-        # prepare to build batch
-        store_id, local_id = idx // self.num_store_samples, idx % self.num_store_samples
+        """            
         store_nbr = self.ids[store_id]
-        sale_data = self.TR.loc[store_nbr].set_index("date")
+        if is_train:
+            sale_data = self.TR.loc[store_nbr].set_index("date")
+        else:
+            sale_data = self.TT.loc[store_nbr].set_index("date")
         sale_data.index = pd.to_datetime(sale_data.index)
         start_date, end_date = (
             pd.to_datetime(sale_data.index[0]),
@@ -142,15 +150,16 @@ class Sales_Dataset(DS):
         )
         # make a column for each family of product
         for d in sorted(list(set(sale_data.family))):
-            sale_df = pd.concat(
-                [
-                    sale_df,
-                    pd.DataFrame(
-                        {f"{d}_sales": sale_data[sale_data.family == d].sales}
-                    ),
-                ],
-                axis=1,
-            )
+            if is_train:
+                sale_df = pd.concat(
+                    [
+                        sale_df,
+                        pd.DataFrame(
+                            {f"{d}_sales": sale_data[sale_data.family == d].sales}
+                        ),
+                    ],
+                    axis=1,
+                )
             sale_df = pd.concat(
                 [
                     sale_df,
@@ -174,36 +183,36 @@ class Sales_Dataset(DS):
 
         # append other features
         sale_df = pd.concat([sale_df, oil_data], axis=1)
-        sale_df = pd.concat([sale_df, trans_data], axis=1)
+        if is_train:
+            sale_df = pd.concat([sale_df, trans_data], axis=1)
         s_data = self.S.loc[(store_nbr)].to_numpy()
 
         # combine the features into batch
         sample = torch.zeros(
             sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
         ).cuda()
-        sample[:, : sale_df.shape[1]] = torch.tensor(
+        sample[:, :sale_df.shape[1]] = torch.tensor(
             sale_df.to_numpy(), dtype=torch.float32
         )
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
-        start_t, end_t = local_id, local_id + self.sample_seq_len
+        start_t, end_t = local_id, local_id + self.sample_seq_len if is_train else self.num_store_samples-1
         cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
-        if self.is_train:
-            return (
-                sample[start_t:end_t],
-                torch.tensor(
-                    sale_df[cols].to_numpy(), dtype=torch.float32
-                )[start_t+1:end_t+1]
-            )
+        data = sample[start_t:end_t]
+        if is_train:
+            return data, torch.tensor(
+                sale_df[cols].to_numpy(), dtype=torch.float32
+            )[start_t+1 : min(self.num_days, end_t+1)]
         else:
-            return sample[start_t:end_t], torch.tensor(store_nbr)
+            return data, None
 
 
-
-
-    # sample[:, :2] = torch.tensor(sale_data[["sales", "onpromotion"]].to_numpy())
-    # sample[:, 2] = torch.tensor(oil_data)
-    # sample[:, 3] = torch.tensor(trans_data)
-    # sample[:, 4:] = torch.tensor(s_data)
-
-    # return sample.reshape(1, -1)
+    def __getitem__(self, idx):
+        # prepare to build batch
+        store_id, local_id = idx // self.num_store_samples, idx % self.num_store_samples
+        if self.is_train:
+            return self._get_sample(store_id, local_id, self.is_train)
+        else:
+            test_part, _ = self._get_sample(store_id, local_id, False)
+            train_part, _ = self._get_sample(store_id, self.num_store_samples, True)
+            return 
