@@ -2,7 +2,7 @@ import os, sys
 import subprocess as sp
 
 IS_UNIX = sys.platform.startswith('linux') or sys.platform.startswith('darwin')
-DATA_HOME = os.path.expanduser("~/datasets") if IS_UNIX else os.path.expanduser("D:\\")
+DATA_HOME = os.path.expanduser("~/datasets") if IS_UNIX else os.path.expanduser("$HOME").join("datasets")
 
 
 def join(pth1, pth2):
