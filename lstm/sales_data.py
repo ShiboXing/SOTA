@@ -59,8 +59,19 @@ class Sales_Dataset(DS):
         df = df.asfreq("D").interpolate()
         return Sales_Dataset.df_fix_float(df)
     
-    def set_log_rets(self, label, store_id, date):
-        pass
+    def set_log_rets(self, label: torch.Tensor, store_id, date):
+        offset = 0
+
+        # assign sales data
+        for col in self.families:
+            self.TR.loc[(self.TR.index == store_id) & \
+                        (self.TR["family"] == col) & \
+                        (self.TR["date"] == date), "sales"] = label[offset].item()
+
+            offset += 1
+
+        # assign transaction data
+        self.TS.loc[(self.TS.index == store_id) & (self.TS["date"] == date), "transactions"] = label[-1].item()
 
     def __init__(self, dir_pth, seq_len=500, is_train=True):
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
@@ -73,7 +84,7 @@ class Sales_Dataset(DS):
 
         # preprocess nominal data
         self.store_nbrs = set(self.TR["store_nbr"])
-        self.family_set = set(self.TR["family"])
+        self.families = sorted(list(set(self.TR["family"])))
         # self.family_encoding = self.get_nominal_dict(self.TR.family)
         city_encoding = self.get_nominal_dict(self.S.city)
         type_encoding = self.get_nominal_dict(self.S.type)
@@ -222,7 +233,10 @@ class Sales_Dataset(DS):
         local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
         start_t, end_t = local_id, local_id + self.sample_seq_len
         cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
-        
+
+        # store testset columns for inference purpose
+        self.test_cols = cols
+
         # output the sample
         data = sample[start_t:end_t]
         label = torch.tensor(
