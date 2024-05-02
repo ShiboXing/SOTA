@@ -81,6 +81,13 @@ class Sales_Dataset(DS):
         self.S.cluster = self.S.cluster.map(cluster_encoding)
         self.S = self.S[["store_nbr", "city", "cluster", "type"]]
 
+
+        # standardize the date column
+        self.TR.date = pd.to_datetime(self.TR.date)
+        self.TT.date = pd.to_datetime(self.TT.date)
+        self.TS.date = pd.to_datetime(self.TS.date)
+        self.O.date = pd.to_datetime(self.O.date)
+
         # order the rows
         self.TS.sort_values(["store_nbr", "date"], inplace=True)
         self.TS.set_index(["store_nbr"], inplace=True)
@@ -124,18 +131,24 @@ class Sales_Dataset(DS):
             curr_ts = curr_ts.reset_index()
             curr_ts.index = pd.to_datetime(curr_ts.date)
             curr_ts.set_index("date", inplace=True)
+            # create trans data and labels that extend to the max date
             trans_data = self.df_adjust_date(curr_ts, min_date, self.train_max_date)
-            trans_tmp = pd.DataFrame(index=pd.date_range(start=pd.to_datetime(self.train_max_date) + timedelta(days=1), end=self.test_max_date), \
+            trans_tmp = pd.DataFrame(index=pd.date_range(start=pd.to_datetime(self.train_max_date) + timedelta(days=1), \
+                                                          end=pd.to_datetime(self.test_max_date)), \
                                      columns=["store_nbr", "transactions"])
             trans_tmp.store_nbr = c
             trans_tmp.transactions = 0.
             trans_data = pd.concat([trans_data, trans_tmp], axis=0)
             trans_data = trans_data.reset_index().rename(columns={"index": "date"}).set_index("store_nbr")
             self.TS = pd.concat((self.TS, trans_data), axis=0)
+        
+        # re-sort TS by (store # and date)
+        self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
+        self.TS.set_index(["store_nbr"], inplace=True)
 
-
-        # construct the primary key
+        # construct the dataset's primary key
         self.ids = sorted(list(set(self.S.index)))
+        self.dates = self.TS.index.unique()
 
 
     def __len__(self):
