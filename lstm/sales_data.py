@@ -58,6 +58,9 @@ class Sales_Dataset(DS):
         # interpolate
         df = df.asfreq("D").interpolate()
         return Sales_Dataset.df_fix_float(df)
+    
+    def set_log_rets(self, label, store_id, date):
+        pass
 
     def __init__(self, dir_pth, seq_len=500, is_train=True):
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
@@ -125,29 +128,21 @@ class Sales_Dataset(DS):
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
 
         # extend TS to max date
-        store_ids = self.TS.index.unique()
-        for c in store_ids:
-            curr_ts = self.TS.loc[c]
-            curr_ts = curr_ts.reset_index()
-            curr_ts.index = pd.to_datetime(curr_ts.date)
-            curr_ts.set_index("date", inplace=True)
-            # create trans data and labels that extend to the max date
-            trans_data = self.df_adjust_date(curr_ts, min_date, self.train_max_date)
+        self.ids = sorted(list(set(self.S.index)))
+        for c in self.ids:
             trans_tmp = pd.DataFrame(index=pd.date_range(start=pd.to_datetime(self.train_max_date) + timedelta(days=1), \
                                                           end=pd.to_datetime(self.test_max_date)), \
                                      columns=["store_nbr", "transactions"])
-            trans_tmp.store_nbr = c
             trans_tmp.transactions = 0.
-            trans_data = pd.concat([trans_data, trans_tmp], axis=0)
-            trans_data = trans_data.reset_index().rename(columns={"index": "date"}).set_index("store_nbr")
-            self.TS = pd.concat((self.TS, trans_data), axis=0)
+            trans_tmp.store_nbr = c
+            trans_tmp = trans_tmp.reset_index().rename(columns={"index": "date"}).set_index("store_nbr") 
+            self.TS = pd.concat((self.TS, trans_tmp), axis=0)
         
         # re-sort TS by (store # and date)
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
 
         # construct the dataset's primary key
-        self.ids = sorted(list(set(self.S.index)))
         self.dates = self.TS.index.unique()
 
 
@@ -205,9 +200,8 @@ class Sales_Dataset(DS):
 
         # fix the data on the missing dates
         sale_df = self.df_adjust_date(sale_df, start_date, end_date)
-        # trans_data = self.TS.loc[store_nbr].set_index("date")
-        # trans_data.index = pd.to_datetime(trans_data.index)
-        # trans_data = self.df_adjust_date(trans_data, start_date, end_date)
+        trans_data = self.TS.loc[store_nbr].set_index("date")
+        trans_data = self.df_adjust_date(trans_data, start_date, end_date)
         oil_data = self.df_adjust_date(self.O, start_date, end_date)
 
         # append other features
@@ -228,8 +222,13 @@ class Sales_Dataset(DS):
         local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
         start_t, end_t = local_id, local_id + self.sample_seq_len
         cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
+        
+        # output the sample
         data = sample[start_t:end_t]
-
-        return data, torch.tensor(
+        label = torch.tensor(
             sale_df[cols].to_numpy(), dtype=torch.float32
         )[start_t+1 : end_t+1]
+        if self.is_train:
+            return data, label
+        else:
+            return data, label, store_nbr, sale_df.index[end_t]
