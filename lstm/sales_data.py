@@ -95,7 +95,6 @@ class Sales_Dataset(DS):
         self.S.cluster = self.S.cluster.map(cluster_encoding)
         self.S = self.S[["store_nbr", "city", "cluster", "type"]]
 
-
         # standardize the date column
         self.TR.date = pd.to_datetime(self.TR.date)
         self.TT.date = pd.to_datetime(self.TT.date)
@@ -118,6 +117,9 @@ class Sales_Dataset(DS):
 
         # concat TR and TT
         self.TR = pd.concat([self.TR, self.TT], axis=0).fillna(0)
+        if not self.is_train:
+            # remove all rows unused by inference
+            self.TR = self.TR[self.TR.index > max(self.TS.date) - timedelta(days=seq_len-1)] 
 
         # get statistics
         self.sample_seq_len = seq_len
@@ -162,12 +164,11 @@ class Sales_Dataset(DS):
     
     
     def __getitem__(self, idx):
-        
         """Sample dimension: per (date, store_nbr):
         sequence_length * (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1))
 
         L * (33*2 + 2 + 3)
-        """            
+        """
 
         store_id, local_id = idx // self.num_store_samples, idx % self.num_store_samples
         store_nbr = self.ids[store_id]
