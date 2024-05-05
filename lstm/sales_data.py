@@ -117,9 +117,6 @@ class Sales_Dataset(DS):
 
         # concat TR and TT
         self.TR = pd.concat([self.TR, self.TT], axis=0).fillna(0)
-        if not self.is_train:
-            # remove all rows unused by inference
-            self.TR = self.TR[self.TR.index > max(self.TS.date) - timedelta(days=seq_len-1)] 
 
         # get statistics
         self.sample_seq_len = seq_len
@@ -139,6 +136,9 @@ class Sales_Dataset(DS):
         self.TS.transactions = self.get_log_ret(self.TS, "transactions")
         self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
+        if not self.is_train:
+            # remove all rows unused in inference
+            self.TR = self.TR[self.TR.date > self.train_max_date - timedelta(days=seq_len)] 
 
         # extend TS to max date
         self.ids = sorted(list(set(self.S.index)))
@@ -231,7 +231,7 @@ class Sales_Dataset(DS):
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
         # slice the samples in the date range  
-        local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
+        # local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
         start_t, end_t = local_id, local_id + self.sample_seq_len
         cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
 
