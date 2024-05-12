@@ -73,7 +73,8 @@ class Sales_Dataset(DS):
         # assign transaction data
         self.TS.loc[(self.TS.index == store_id) & (self.TS["date"] == date), "transactions"] = label[-1].item()
 
-    def __init__(self, dir_pth, seq_len=500, is_train=True):
+    def __init__(self, dir_pth, seq_len=500, is_train=True, device="cpu"):
+        self.device = device
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
         self.O = pd.read_csv(join(dir_pth, "oil.csv"), index_col=False)
         self.S = pd.read_csv(join(dir_pth, "stores.csv"), index_col=False)
@@ -224,11 +225,11 @@ class Sales_Dataset(DS):
         # combine the features into batch
         sample = torch.zeros(
             sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
-        ).cuda()
+        ).to(self.device)
         sample[:, :sale_df.shape[1]] = torch.tensor(
             sale_df.to_numpy(), dtype=torch.float32
-        )
-        sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
+        ).to(self.device)
+        sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32).to(self.device)
 
         # slice the samples in the date range  
         # local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
@@ -239,10 +240,10 @@ class Sales_Dataset(DS):
         self.test_cols = cols
 
         # output the sample
-        data = sample[start_t:end_t]
+        data = d
         label = torch.tensor(
             sale_df[cols].to_numpy(), dtype=torch.float32
-        )[start_t+1 : end_t+1]
+        )[start_t+1 : end_t+1].to(self.device)
         if self.is_train:
             return data, label
         else:
