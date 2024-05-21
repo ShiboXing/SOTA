@@ -86,7 +86,6 @@ class Sales_Dataset(DS):
         # preprocess nominal data
         self.store_nbrs = set(self.TR["store_nbr"])
         self.families = sorted(list(set(self.TR["family"])))
-        # self.family_encoding = self.get_nominal_dict(self.TR.family)
         city_encoding = self.get_nominal_dict(self.S.city)
         type_encoding = self.get_nominal_dict(self.S.type)
         cluster_encoding = self.get_nominal_dict(self.S.cluster)
@@ -240,7 +239,7 @@ class Sales_Dataset(DS):
         self.test_cols = cols
 
         # output the sample
-        data = d
+        data = sample[start_t:end_t]
         label = torch.tensor(
             sale_df[cols].to_numpy(), dtype=torch.float32
         )[start_t+1 : end_t+1].to(self.device)
