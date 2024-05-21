@@ -64,10 +64,10 @@ class Sales_Dataset(DS):
 
         # assign sales data
         for col in self.families:
-            self.TR.loc[(self.TR.index == store_id) & \
-                        (self.TR["family"] == col) & \
-                        (self.TR["date"] == date), "sales"] = label[offset].item()
-
+            store_data = self.TR.loc[store_id]
+            store_data[(store_data.family == col) & \
+                       (store_data.date == date)]["sales"] = label[offset].item()
+        
             offset += 1
 
         # assign transaction data
