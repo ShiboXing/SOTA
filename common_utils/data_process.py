@@ -3,6 +3,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 
+
 def load_data(train_path, test_path):
     train_data = pd.read_csv(train_path, index_col=0)
     test_data = pd.read_csv(test_path, index_col=0)
@@ -12,10 +13,12 @@ def load_data(train_path, test_path):
 
 def check_outliers(data):
     outliers = []
-    for col in data.select_dtypes(include='float').columns:
+    for col in data.select_dtypes(include="float").columns:
         col_mean = data[col].mean()
         col_std = data[col].std()
-        col_outliers = data[(data[col] > col_mean + 3 * col_std) | (data[col] < col_mean - 3 * col_std)]
+        col_outliers = data[
+            (data[col] > col_mean + 3 * col_std) | (data[col] < col_mean - 3 * col_std)
+        ]
         for idx in col_outliers.index:
             outliers.append((col, idx))
 
@@ -38,7 +41,7 @@ def handle_outliers(data, outliers):
 
 def scale_data(data):
     sc = StandardScaler()
-    num_cols = data.select_dtypes(include='float').columns
+    num_cols = data.select_dtypes(include="float").columns
     data[num_cols] = sc.fit_transform(data[num_cols])
 
     return data
@@ -46,11 +49,13 @@ def scale_data(data):
 
 def encode_features(X):
     ls = []
-    str_cols = X.select_dtypes(include=['object']).columns
+    str_cols = X.select_dtypes(include=["object"]).columns
     le_features = LabelEncoder()
     for col in str_cols:
         X[col] = le_features.fit_transform(X[col])
-        ls.append((col, dict(zip(le_features.classes_, range(len(le_features.classes_))))))
+        ls.append(
+            (col, dict(zip(le_features.classes_, range(len(le_features.classes_)))))
+        )
 
     return ls
 
@@ -70,9 +75,5 @@ def decode_labels(le_labels, encoded_labels):
 
 def check_data_balance(y):
     label_dist = Counter(y)
-    
+
     return label_dist
-
-
-
-

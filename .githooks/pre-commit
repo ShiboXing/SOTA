@@ -3,4 +3,4 @@
 # echo "running black *"
 black * || true
 # echo "running for ipynb clear outputs" 
-find . -name "*.ipynb" | xargs jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
+find . -name "*.ipynb" | xargs jupyter nbconvert --inplace --ClearOutputPreprocessor.enabled=True 
