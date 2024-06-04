@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class AlexNetBlock(nn.Module):
     def __init__(
         self,
@@ -9,18 +10,19 @@ class AlexNetBlock(nn.Module):
         kernel_size,
         stride,
         padding,
-        pool_and_norm: bool
-        ): 
-
+        pool_and_norm: bool,
+    ):
         super(AlexNetBlock, self).__init__()
 
-        self.conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.conv_layer = nn.Conv2d(
+            in_channels, out_channels, kernel_size, stride, padding
+        )
         self.relu = nn.ReLU()
         self.pool_and_norm = pool_and_norm
         if self.pool_and_norm:
             self.norm = nn.LocalResponseNorm(size=5, alpha=0.0001, beta=0.75, k=2)
             self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
-            
+
     def forward(self, x):
         x = self.conv_layer(x)
         x = self.relu(x)
@@ -30,9 +32,9 @@ class AlexNetBlock(nn.Module):
 
         return x
 
+
 class AlexNet(nn.Module):
     def __init__(self, num_classes, in_channels):
-
         super(AlexNet, self).__init__()
 
         self.block1 = AlexNetBlock(in_channels, 96, 11, 4, 0, True)
