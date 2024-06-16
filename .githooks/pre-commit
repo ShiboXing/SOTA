@@ -1,6 +1,0 @@
-#!/bin/bash
-
-# echo "running black *"
-black * || true
-# echo "running for ipynb clear outputs" 
-find . -name "*.ipynb" | xargs jupyter nbconvert --inplace --ClearOutputPreprocessor.enabled=True 
