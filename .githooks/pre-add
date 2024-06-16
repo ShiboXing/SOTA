@@ -1,0 +1,9 @@
+#!/usr/bin/bash
+set +e
+
+# echo "running formatting"
+black * || true
+# echo "running for ipynb clear outputs" 
+# find . -name "*.ipynb" | xargs jupyter nbconvert --inplace --ClearOutputPreprocessor.enabled=True
+
+
