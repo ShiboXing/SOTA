@@ -1,3 +1,0 @@
-#!/usr/bin/bash
-
-cp -f .githooks/config .git/config
