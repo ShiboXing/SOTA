@@ -1,7 +1,9 @@
 #!/usr/bin/bash
 set +e
 
-# echo "running formatting"
+# formatting
 black * || true
-# echo "running for ipynb clear outputs" 
+clang-format -i * || true
+
+# notebooks clear outputs" 
 find . -name "*.ipynb" | xargs jupyter nbconvert --inplace --ClearOutputPreprocessor.enabled=True
