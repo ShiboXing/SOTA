@@ -10,6 +10,9 @@ __pycache__
 # jupyter
 .ipynb_checkpoints
 
+# torch
+*.pth
+
 # data
 build/
 data/
