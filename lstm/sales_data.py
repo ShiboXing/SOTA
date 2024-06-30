@@ -230,18 +230,24 @@ class Sales_Dataset(DS):
         # make a column for each family of product
         for d in sorted(list(set(sale_data.family))):
             sale_df = pd.concat(
-                [sale_df, pd.DataFrame(
+                [
+                    sale_df,
+                    pd.DataFrame(
                         {f"{d}_sales": sale_data[sale_data.family == d].sales}
                     ),
                 ],
                 axis=1,
             )
             sale_df = pd.concat(
-                [sale_df, pd.DataFrame({
-                        f"{d}_onpromotion": sale_data[
-                            sale_data.family == d
-                        ].onpromotion
-                    }),
+                [
+                    sale_df,
+                    pd.DataFrame(
+                        {
+                            f"{d}_onpromotion": sale_data[
+                                sale_data.family == d
+                            ].onpromotion
+                        }
+                    ),
                 ],
                 axis=1,
             )
@@ -256,7 +262,11 @@ class Sales_Dataset(DS):
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
         s_info = self.S.loc[(store_nbr)]
-        sale_df["city"], sale_df["cluster"], sale_df["type"] = s_info.city, s_info.cluster, s_info.type
+        sale_df["city"], sale_df["cluster"], sale_df["type"] = (
+            s_info.city,
+            s_info.cluster,
+            s_info.type,
+        )
 
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
