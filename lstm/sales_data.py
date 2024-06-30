@@ -25,11 +25,15 @@ class Sales_Dataset(DS):
         return Sales_Dataset.df_fix_float(rets)
 
     def z_series(self, df: pd.Series, clip=False):
-        """Normalize dataframe series while eliminating the effect of zeros"""
+        """
+        Normalize dataframe series while eliminating the effect of zeros
+        MEAN: 0
+        STD: 0.25
+        """
         # df_tmp = df[df != 0.0]
         if clip:
             df = df.clip(lower=df.mean() - 2 * df.std(), upper=df.mean() + 2 * df.std())
-        return (df - df.mean()) / df.std()
+        return (df - df.mean()) / df.std() / df.std()
 
     def get_nominal_dict(self, df: pd.Series):
         d = {elem: i for i, elem in enumerate(set(df))}
@@ -209,7 +213,7 @@ class Sales_Dataset(DS):
         MEAN: 0
         MIN: -1
         MAX: 1
-        L * (33*2 + 2 + 3)
+        L * (33*2 + 3 + 3)
         """
 
         store_id, local_id = idx // self.num_store_samples, idx % self.num_store_samples
@@ -226,24 +230,18 @@ class Sales_Dataset(DS):
         # make a column for each family of product
         for d in sorted(list(set(sale_data.family))):
             sale_df = pd.concat(
-                [
-                    sale_df,
-                    pd.DataFrame(
+                [sale_df, pd.DataFrame(
                         {f"{d}_sales": sale_data[sale_data.family == d].sales}
                     ),
                 ],
                 axis=1,
             )
             sale_df = pd.concat(
-                [
-                    sale_df,
-                    pd.DataFrame(
-                        {
-                            f"{d}_onpromotion": sale_data[
-                                sale_data.family == d
-                            ].onpromotion
-                        }
-                    ),
+                [sale_df, pd.DataFrame({
+                        f"{d}_onpromotion": sale_data[
+                            sale_data.family == d
+                        ].onpromotion
+                    }),
                 ],
                 axis=1,
             )
@@ -257,16 +255,12 @@ class Sales_Dataset(DS):
         # append other features (oil, transaction)
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
-        # s_info = self.S.loc[(store_nbr)]
-        # sale_df["city"], sale_df["cluster"], sale_df["type"] = s_info.city, s_info.cluster, s_info.type
-        # sale_df = pd.concat([sale_df, self.S.loc[(store_nbr)]], axis=1)
+        s_info = self.S.loc[(store_nbr)]
+        sale_df["city"], sale_df["cluster"], sale_df["type"] = s_info.city, s_info.cluster, s_info.type
 
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
-        # sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32).to(self.device)
-
         # slice the samples in the date range
-        # local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
         start_t, end_t = local_id, local_id + self.sample_seq_len
         cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
 
