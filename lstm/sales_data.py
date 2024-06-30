@@ -77,6 +77,27 @@ class Sales_Dataset(DS):
             (self.TS.index == store_id) & (self.TS["date"] == date), "transactions"
         ] = label[-1].item()
 
+    def __apply_holidays__(self):
+        self.TR = pd.merge(self.TR, self.S, on="store_nbr")
+        self.TR["hol"] = -0.5
+        for _, row in self.H.iterrows():
+            if row.transferred == True:
+                continue
+            if row.locale == "Local":
+                self.TR.loc[
+                    (self.TR.date == row.date) & (self.TR.city == row.locale_name),
+                    "hol",
+                ] = 0.5
+            elif row.locale == "Regional":
+                self.TR.loc[
+                    (self.TR.date == row.date) & (self.TR.state == row.locale_name),
+                    "hol",
+                ] = 0.5
+            else:
+                self.TR.loc[(self.TR.date == row.date), "hol"] = 0.5
+
+        self.TR = self.TR.drop(["city", "state", "type", "cluster"], axis=1)
+
     def __init__(self, dir_pth, seq_len=500, is_train=True, device="cpu"):
         self.device = device
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
@@ -86,18 +107,6 @@ class Sales_Dataset(DS):
         self.TT = pd.read_csv(join(dir_pth, "test.csv"), index_col=False)
         self.TS = pd.read_csv(join(dir_pth, "transactions.csv"), index_col=False)
         self.is_train = is_train
-
-        # preprocess nominal data
-        self.store_nbrs = set(self.TR["store_nbr"])
-        self.families = sorted(list(set(self.TR["family"])))
-        city_encoding = self.get_nominal_dict(self.S.city)
-        type_encoding = self.get_nominal_dict(self.S.type)
-        cluster_encoding = self.get_nominal_dict(self.S.cluster)
-
-        self.S.city = self.S.city.map(city_encoding)
-        self.S.type = self.S.type.map(type_encoding)
-        self.S.cluster = self.S.cluster.map(cluster_encoding)
-        self.S = self.S[["store_nbr", "city", "cluster", "type"]]
 
         # standardize the date column
         self.TR.date = pd.to_datetime(self.TR.date)
@@ -121,6 +130,21 @@ class Sales_Dataset(DS):
 
         # concat TR and TT
         self.TR = pd.concat([self.TR, self.TT], axis=0).fillna(0)
+
+        # apply holiday column to TR
+        self.__apply_holidays__()
+
+        # preprocess nominal data
+        self.store_nbrs = set(self.TR.index)
+        self.families = sorted(list(set(self.TR["family"])))
+        city_encoding = self.get_nominal_dict(self.S.city)
+        type_encoding = self.get_nominal_dict(self.S.type)
+        cluster_encoding = self.get_nominal_dict(self.S.cluster)
+
+        self.S.city = self.S.city.map(city_encoding)
+        self.S.type = self.S.type.map(type_encoding)
+        self.S.cluster = self.S.cluster.map(cluster_encoding)
+        self.S = self.S[["city", "cluster", "type"]]
 
         # get statistics
         self.sample_seq_len = seq_len
@@ -182,7 +206,9 @@ class Sales_Dataset(DS):
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
         sequence_length * (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1))
-
+        MEAN: 0
+        MIN: -1
+        MAX: 1
         L * (33*2 + 2 + 3)
         """
 
@@ -196,11 +222,7 @@ class Sales_Dataset(DS):
         )
 
         # transform the sale data
-        sale_df = pd.DataFrame(
-            index=pd.to_datetime(
-                sale_data[sale_data.family == sale_data.iloc[0].family].index
-            )
-        )
+        sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
         # make a column for each family of product
         for d in sorted(list(set(sale_data.family))):
             sale_df = pd.concat(
@@ -232,19 +254,16 @@ class Sales_Dataset(DS):
         trans_data = self.df_adjust_date(trans_data, start_date, end_date)
         oil_data = self.df_adjust_date(self.O, start_date, end_date)
 
-        # append other features
+        # append other features (oil, transaction)
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
-        s_data = self.S.loc[(store_nbr)].to_numpy()
+        # s_info = self.S.loc[(store_nbr)]
+        # sale_df["city"], sale_df["cluster"], sale_df["type"] = s_info.city, s_info.cluster, s_info.type
+        # sale_df = pd.concat([sale_df, self.S.loc[(store_nbr)]], axis=1)
 
         # combine the features into batch
-        sample = torch.zeros(
-            sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
-        ).to(self.device)
-        sample[:, : sale_df.shape[1]] = torch.tensor(
-            sale_df.to_numpy(), dtype=torch.float32
-        ).to(self.device)
-        sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32).to(self.device)
+        sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
+        # sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32).to(self.device)
 
         # slice the samples in the date range
         # local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
