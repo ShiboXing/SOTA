@@ -52,6 +52,9 @@ class LSTM(nn.Module):
         )
 
     def forward(self, inputs):
+        """
+        inputs (BS, Seq, in_len)
+        """
         device = inputs.device
         h_prev = torch.zeros(
             (inputs.shape[0], inputs.shape[1], self.hidden_size), device=device
@@ -60,9 +63,10 @@ class LSTM(nn.Module):
             (inputs.shape[0], inputs.shape[1], self.hidden_size), device=device
         )
 
-        for lstm in self.lstms:
-            for n
-            h_prev, c_prev = lstm(inputs, (h_prev, c_prev))
-            inputs = h_prev
+        for i in range(inputs.shape[0]):
+            X = inputs[:, i, :]
+            for lstm in self.lstms:
+                h_prev, c_prev = lstm(X, (h_prev, c_prev))
+                inputs = h_prev
 
         return inputs, (h_prev, c_prev)
