@@ -30,12 +30,11 @@ class LSTM_Cell(nn.Module):
 
 
     def forward(self, inputs):
-        # inputs shape is (batch_size, seq_size, feature_length)
+        # inputs shape is (batch_size, 1, feature_length)
         X, (h_prev, c_prev) = inputs
-
-        outputs = []
+        
         f_t = torch.sigmoid(self.W_xf(X) + self.W_hf(h_prev))
-        i_t = torch.sigmoid(self.W_xi(W) + self.W_hi(h_prev))
+        i_t = torch.sigmoid(self.W_xi(X) + self.W_hi(h_prev))
         c_tilde_t = torch.tanh(self.W_xc(X) + self.W_hc(h_prev))
         c_t = f_t * c_prev + i_t * c_tilde_t
         o_t = torch.sigmoid(self.W_xo(X) + self.W_ho(h_prev))
@@ -55,18 +54,21 @@ class LSTM(nn.Module):
         """
         inputs (BS, Seq, in_len)
         """
+        bs, seq_len, _ = inputs.shape
         device = inputs.device
         h_prev = torch.zeros(
-            (inputs.shape[0], inputs.shape[1], self.hidden_size), device=device
+            (bs, self.hidden_size), device=device
         )
         c_prev = torch.zeros(
-            (inputs.shape[0], inputs.shape[1], self.hidden_size), device=device
+            (bs, self.hidden_size), device=device
         )
-
+        
+        output = torch.randn(bs, seq_len, self.hidden_size).to(device)
         for i in range(inputs.shape[0]):
             X = inputs[:, i, :]
             for lstm in self.lstms:
-                h_prev, c_prev = lstm(X, (h_prev, c_prev))
-                inputs = h_prev
+                h_prev, c_prev = lstm((X, (h_prev, c_prev)))
+                X = h_prev
+            output[:, i, :] = h_prev
 
-        return inputs, (h_prev, c_prev)
+        return output, (h_prev, c_prev)

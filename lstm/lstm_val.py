@@ -4,10 +4,17 @@ forward and backward
 """
 
 from mylstm import LSTM
-from torch.nn import LSTM as torch_LSTM
+from torch import nn
+import torch
 
-mylstm = LSTM(6, 10, 2)
-lstm = torch_LSTM(6, 10, 2)
+torch.seed(
 
+mylstm = LSTM(6, 10, 2).cuda()
+lstm = nn.LSTM(6, 10, 2).cuda()
 
+X = torch.randn(4, 20, 6).cuda()
+yhat1, _ = mylstm(X)
+yhat2, _ = lstm(X)
 
+print(yhat1.shape)
+print(yhat2.shape)
