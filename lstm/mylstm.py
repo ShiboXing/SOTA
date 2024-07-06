@@ -28,11 +28,10 @@ class LSTM_Cell(nn.Module):
         self.W_xo = nn.Linear(input_size, hidden_size)
         self.W_ho = nn.Linear(hidden_size, hidden_size)
 
-
     def forward(self, inputs):
         # inputs shape is (batch_size, 1, feature_length)
         X, (h_prev, c_prev) = inputs
-        
+
         f_t = torch.sigmoid(self.W_xf(X) + self.W_hf(h_prev))
         i_t = torch.sigmoid(self.W_xi(X) + self.W_hi(h_prev))
         c_tilde_t = torch.tanh(self.W_xc(X) + self.W_hc(h_prev))
@@ -41,13 +40,21 @@ class LSTM_Cell(nn.Module):
         h_t = o_t * torch.tanh(c_t)
 
         return h_t, c_t
-    
+
+
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, layer_num):
         super().__init__()
         self.hidden_size = hidden_size
         self.lstms = nn.ModuleList(
-            (LSTM_Cell(hidden_size, hidden_size) if i else LSTM_Cell(input_size, hidden_size) for i in range(layer_num))
+            (
+                (
+                    LSTM_Cell(hidden_size, hidden_size)
+                    if i
+                    else LSTM_Cell(input_size, hidden_size)
+                )
+                for i in range(layer_num)
+            )
         )
 
     def forward(self, inputs):
@@ -56,13 +63,9 @@ class LSTM(nn.Module):
         """
         bs, seq_len, _ = inputs.shape
         device = inputs.device
-        h_prev = torch.zeros(
-            (bs, self.hidden_size), device=device
-        )
-        c_prev = torch.zeros(
-            (bs, self.hidden_size), device=device
-        )
-        
+        h_prev = torch.zeros((bs, self.hidden_size), device=device)
+        c_prev = torch.zeros((bs, self.hidden_size), device=device)
+
         output = torch.randn(bs, seq_len, self.hidden_size).to(device)
         for i in range(inputs.shape[0]):
             X = inputs[:, i, :]

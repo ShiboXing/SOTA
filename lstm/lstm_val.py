@@ -7,7 +7,7 @@ from mylstm import LSTM
 from torch import nn
 import torch
 
-torch.seed(
+torch.manual_seed(42)
 
 mylstm = LSTM(6, 10, 2).cuda()
 lstm = nn.LSTM(6, 10, 2).cuda()
