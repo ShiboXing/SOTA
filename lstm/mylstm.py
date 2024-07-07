@@ -1,8 +1,15 @@
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
+import math
 
 class LSTM_Cell(nn.Module):
+
+    def reset_parameters(self) -> None:
+        stdv = 1.0 / math.sqrt(self.hidden_size) if self.hidden_size > 0 else 0
+        for weight in self.parameters():
+            nn.init.uniform_(weight, -stdv, stdv)
+
     def __init__(self, input_size, hidden_size):
         # input_size = feature_length
         # hidden_size is the # of hidden units in a hidden layer
@@ -11,35 +18,31 @@ class LSTM_Cell(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
 
-        # LSTM gates parameters
         # Forget gate
-        self.W_xf = nn.Linear(input_size, hidden_size)
-        self.W_hf = nn.Linear(hidden_size, hidden_size)
+        self.Wi = nn.Parameter(torch.empty(hidden_size * 4, input_size))
+        self.Wh = nn.Parameter(torch.empty(hidden_size * 4, hidden_size))
+        self.bi = nn.Parameter(torch.empty(hidden_size * 4))
+        self.bh = nn.Parameter(torch.empty(hidden_size * 4))
 
-        # Input gate
-        self.W_xi = nn.Linear(input_size, hidden_size)
-        self.W_hi = nn.Linear(hidden_size, hidden_size)
-
-        # Input node(c_tilde)
-        self.W_xc = nn.Linear(input_size, hidden_size)
-        self.W_hc = nn.Linear(hidden_size, hidden_size)
-
-        # Output gate
-        self.W_xo = nn.Linear(input_size, hidden_size)
-        self.W_ho = nn.Linear(hidden_size, hidden_size)
+        self.reset_parameters()
 
     def forward(self, inputs):
         # inputs shape is (batch_size, 1, feature_length)
         X, (h_prev, c_prev) = inputs
 
-        f_t = torch.sigmoid(self.W_xf(X) + self.W_hf(h_prev))
-        i_t = torch.sigmoid(self.W_xi(X) + self.W_hi(h_prev))
-        c_tilde_t = torch.tanh(self.W_xc(X) + self.W_hc(h_prev))
-        c_t = f_t * c_prev + i_t * c_tilde_t
-        o_t = torch.sigmoid(self.W_xo(X) + self.W_ho(h_prev))
-        h_t = o_t * torch.tanh(c_t)
+        gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
+        i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 1)
 
-        return h_t, c_t
+        i_gate = torch.sigmoid(i_gate)  # input gate
+        f_gate = torch.sigmoid(f_gate)  # forget gate
+        c_gate = torch.tanh(c_gate)     # cell gate
+        o_gate = torch.sigmoid(o_gate)  # output gate
+        
+        c_next = f_gate * c_prev + i_gate * c_gate
+        
+        h_next = o_gate * torch.tanh(c_next)
+        
+        return h_next, c_next
 
 
 class LSTM(nn.Module):
