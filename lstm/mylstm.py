@@ -11,9 +11,6 @@ class LSTM_Cell(nn.Module):
             nn.init.uniform_(weight, -stdv, stdv)
 
     def __init__(self, input_size, hidden_size):
-        # input_size = feature_length
-        # hidden_size is the # of hidden units in a hidden layer
-
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -49,6 +46,7 @@ class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, layer_num):
         super().__init__()
         self.hidden_size = hidden_size
+        self.layer_num = layer_num
         self.lstms = nn.ModuleList(
             (
                 (
@@ -66,8 +64,8 @@ class LSTM(nn.Module):
         """
         bs, seq_len, _ = inputs.shape
         device = inputs.device
-        h_prev = torch.zeros((bs, self.hidden_size), device=device)
-        c_prev = torch.zeros((bs, self.hidden_size), device=device)
+        h_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
+        c_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
 
         output = torch.randn(bs, seq_len, self.hidden_size).to(device)
         for i in range(inputs.shape[0]):
