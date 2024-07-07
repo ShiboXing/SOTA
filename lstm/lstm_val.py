@@ -56,7 +56,7 @@ assert is_pt1 != is_pt2
 print(Y1.shape, Y2.shape, H1.shape, H2.shape, C1.shape, C2.shape)
 
 diff = Y1 != Y2
-print(torch.nonzero(diff, as_tuple=False))
+print(torch.nonzero(diff, as_tuple=False), len(torch.nonzero(diff, as_tuple=False)), Y1.shape[0]*Y1.shape[1]*Y1.shape[2])
 print(Y1.dtype, Y2.dtype)
 torch.set_printoptions(precision=10)
 print(Y1[0, 0, :10])
