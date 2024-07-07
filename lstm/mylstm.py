@@ -30,14 +30,14 @@ class LSTM_Cell(nn.Module):
         gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
         i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 1)
 
-        i_gate = torch.sigmoid(i_gate)  # input gate
-        f_gate = torch.sigmoid(f_gate)  # forget gate
-        c_gate = torch.tanh(c_gate)     # cell gate
-        o_gate = torch.sigmoid(o_gate)  # output gate
+        i_gate = F.sigmoid(i_gate)  # input gate
+        f_gate = F.sigmoid(f_gate)  # forget gate
+        c_gate = F.tanh(c_gate)     # cell gate
+        o_gate = F.sigmoid(o_gate)  # output gate
         
         c_next = f_gate * c_prev + i_gate * c_gate
         
-        h_next = o_gate * torch.tanh(c_next)
+        h_next = o_gate * F.tanh(c_next)
         
         return h_next, c_next
 
