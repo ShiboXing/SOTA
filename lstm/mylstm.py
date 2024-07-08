@@ -30,14 +30,14 @@ class LSTM_Cell(nn.Module):
         gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
         i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 1)
 
-        i_gate = F.sigmoid(i_gate)  # input gate
-        f_gate = F.sigmoid(f_gate)  # forget gate
-        c_gate = F.tanh(c_gate)     # cell gate
-        o_gate = F.sigmoid(o_gate)  # output gate
+        i_gate = torch.sigmoid(i_gate)  # input gate
+        f_gate = torch.sigmoid(f_gate)  # forget gate
+        c_gate = torch.tanh(c_gate)     # cell gate
+        o_gate = torch.sigmoid(o_gate)  # output gate
         
         c_next = f_gate * c_prev + i_gate * c_gate
         
-        h_next = o_gate * F.tanh(c_next)
+        h_next = o_gate * torch.tanh(c_next)
         
         return h_next, c_next
 
@@ -66,18 +66,14 @@ class LSTM(nn.Module):
         device = inputs.device
 
         output = torch.empty(bs, seq_len, self.hidden_size).to(device)
-
-        # iterate layers
-        print("lstm layer: ", len(self.lstms))
-        for i, lstm in enumerate(self.lstms):
+        
+        for lstm in self.lstms:
             h_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
             c_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
-
-            # iterate sequence
-            for j in range(inputs.shape[0]):
-                X = inputs[:, j, :]
+            for i in range(seq_len):
+                X = inputs[:, i, :]
                 h_prev, c_prev = lstm((X, (h_prev, c_prev)))
-
+                # X = h_prev
                 output[:, i, :] = h_prev
 
         return output, (h_prev, c_prev)
