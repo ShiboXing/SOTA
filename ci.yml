@@ -1,0 +1,27 @@
+Global:
+  version: "2.0"
+  group_email: xingshibo@baidu.com
+
+Default:
+  profile: [publish]
+
+Profiles:
+  - profile:
+    name: dev
+    mode: AGENT
+    environment:
+      image: DECK_STD_CENTOS7
+      tools:
+        - python: 3.9.16
+    build:
+      command: python3 setup.py bdist_wheel
+
+  - profile:
+    name: publish
+    mode: AGENT
+    environment:
+      image: DECK_STD_CENTOS7
+      tools:
+        - python: 3.9.16
+    build:
+      command: python3 setup.py bdist_wheel
