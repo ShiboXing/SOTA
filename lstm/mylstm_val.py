@@ -12,7 +12,7 @@ torch.manual_seed(42)
 # device = torch.device("cuda")
 device = torch.device("cpu")
 
-model = LSTM(6, 10, 1).to(device)
+model = LSTM(6, 10, 2).to(device)
 
 X = torch.randn(4, 20, 6).to(device)
 Y, (H, C) = model(X)

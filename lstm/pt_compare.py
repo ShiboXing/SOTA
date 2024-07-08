@@ -13,9 +13,9 @@ PG1 = torch.load("p1_grad.pt")
 PG2 = torch.load("p2_grad.pt")
 
 torch.set_printoptions(precision=13)
-print(Y1.shape, Y2.shape, Y1[:, 5, 3:5], Y2[:, 5, 3:5])
+print("Y2,Y2", Y1.shape, Y2.shape, Y1[:, 5, 3:5], Y2[:, 5, 3:5])
 print(H1.shape, H2.shape, C1.shape, C2.shape)
-print(H1[0, 0, :3], H2[0, :3])
+print("H1,H2", H1[0, 0, :3], H2[0, :3])
 # print(C1[0, -2, 4:6], C2[0, -2, 4:6])
 
 diff = Y1 != Y2
@@ -24,7 +24,7 @@ assert torch.equal(X1, X2)
 # print(torch.abs(Y1-Y2))
 torch.set_printoptions(threshold=10_000)
 
-print(torch.nonzero(torch.abs(PG1-PG2) >= 1e-5), PG1[20:30, :2], PG2[20:30, :2])
+print("PG1,PG2", torch.nonzero(torch.abs(PG1-PG2) >= 1e-5), PG1[20:22, :2], PG2[20:22, :2])
 PG1 = torch.nan_to_num(PG1)
 PG2 = torch.nan_to_num(PG2)
 
