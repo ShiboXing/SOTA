@@ -64,15 +64,20 @@ class LSTM(nn.Module):
         """
         bs, seq_len, _ = inputs.shape
         device = inputs.device
-        h_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
-        c_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
 
-        output = torch.randn(bs, seq_len, self.hidden_size).to(device)
-        for i in range(inputs.shape[0]):
-            X = inputs[:, i, :]
-            for lstm in self.lstms:
+        output = torch.empty(bs, seq_len, self.hidden_size).to(device)
+
+        # iterate layers
+        print("lstm layer: ", len(self.lstms))
+        for i, lstm in enumerate(self.lstms):
+            h_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
+            c_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
+
+            # iterate sequence
+            for j in range(inputs.shape[0]):
+                X = inputs[:, j, :]
                 h_prev, c_prev = lstm((X, (h_prev, c_prev)))
-                X = h_prev
-            output[:, i, :] = h_prev
+
+                output[:, i, :] = h_prev
 
         return output, (h_prev, c_prev)
