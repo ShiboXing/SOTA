@@ -24,11 +24,16 @@ assert torch.equal(X1, X2)
 # print(torch.abs(Y1-Y2))
 torch.set_printoptions(threshold=10_000)
 
-print("PG1,PG2", torch.nonzero(torch.abs(PG1-PG2) >= 1e-5), PG1[20:22, :2], PG2[20:22, :2])
+print(
+    "PG1,PG2",
+    torch.nonzero(torch.abs(PG1 - PG2) >= 1e-5),
+    PG1[20:22, :2],
+    PG2[20:22, :2],
+)
 PG1 = torch.nan_to_num(PG1)
 PG2 = torch.nan_to_num(PG2)
 
-assert torch.all(torch.abs(Y1-Y2) < 1e-5)
-assert torch.all(torch.abs(C1-C2) < 1e-5)
-assert torch.all(torch.abs(H1-H2) < 1e-5)
-assert torch.all(torch.abs(PG1-PG2) < 1e-5)
+assert torch.all(torch.abs(Y1 - Y2) < 1e-5)
+assert torch.all(torch.abs(C1 - C2) < 1e-5)
+assert torch.all(torch.abs(H1 - H2) < 1e-5)
+assert torch.all(torch.abs(PG1 - PG2) < 1e-5)

@@ -16,7 +16,7 @@ model = LSTM(6, 10, 2).to(device)
 
 X = torch.randn(4, 20, 6).to(device)
 Y, (H, C) = model(X)
-(1+Y).sum().backward()
+(1 + Y).sum().backward()
 
 # Y[3, 0, 3] = 0.03134
 for i, p in enumerate(model.parameters()):

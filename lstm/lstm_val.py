@@ -8,6 +8,7 @@ from torch import nn
 import torch.multiprocessing as mp
 import torch
 
+
 def run_module(is_pt: bool, q_param: mp.Queue, q_res: mp.Queue):
     torch.manual_seed(42)
     device = torch.device("cuda")
@@ -25,6 +26,7 @@ def run_module(is_pt: bool, q_param: mp.Queue, q_res: mp.Queue):
 
     q_param.put((is_pt, [p.detach().cpu() for p in model.parameters()]))
     q_res.put((is_pt, (Y.detach().cpu(), H.detach().cpu(), C.detach().cpu())))
+
 
 man = mp.Manager()
 q = man.Queue()
@@ -56,7 +58,11 @@ assert is_pt1 != is_pt2
 print(Y1.shape, Y2.shape, H1.shape, H2.shape, C1.shape, C2.shape)
 
 diff = Y1 != Y2
-print(torch.nonzero(diff, as_tuple=False), len(torch.nonzero(diff, as_tuple=False)), Y1.shape[0]*Y1.shape[1]*Y1.shape[2])
+print(
+    torch.nonzero(diff, as_tuple=False),
+    len(torch.nonzero(diff, as_tuple=False)),
+    Y1.shape[0] * Y1.shape[1] * Y1.shape[2],
+)
 print(Y1.dtype, Y2.dtype)
 torch.set_printoptions(precision=10)
 print(Y1[0, 0, :10])

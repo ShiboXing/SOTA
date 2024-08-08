@@ -16,7 +16,7 @@ model = nn.LSTM(6, 10, 2, batch_first=True).to(device)
 
 X = torch.randn(4, 20, 6).to(device)
 Y, (H, C) = model(X)
-(1+Y).sum().backward()
+(1 + Y).sum().backward()
 
 print("nn.LSTM H.shape", H.shape, C.shape)
 

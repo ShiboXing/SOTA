@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
+
 class LSTM_Cell(nn.Module):
 
     def reset_parameters(self) -> None:
@@ -32,13 +33,13 @@ class LSTM_Cell(nn.Module):
 
         i_gate = torch.sigmoid(i_gate)  # input gate
         f_gate = torch.sigmoid(f_gate)  # forget gate
-        c_gate = torch.tanh(c_gate)     # cell gate
+        c_gate = torch.tanh(c_gate)  # cell gate
         o_gate = torch.sigmoid(o_gate)  # output gate
-        
+
         c_next = f_gate * c_prev + i_gate * c_gate
-        
+
         h_next = o_gate * torch.tanh(c_next)
-        
+
         return h_next, c_next
 
 
@@ -68,8 +69,12 @@ class LSTM(nn.Module):
         outputs, h_outputs, c_outputs = [], [], []
 
         for lstm in self.lstms:
-            h_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
-            c_prev = torch.zeros((bs, self.hidden_size), requires_grad=False, device=device)
+            h_prev = torch.zeros(
+                (bs, self.hidden_size), requires_grad=False, device=device
+            )
+            c_prev = torch.zeros(
+                (bs, self.hidden_size), requires_grad=False, device=device
+            )
             for i in range(seq_len):
                 X = inputs[:, i, :]
                 h_prev, c_prev = lstm((X, (h_prev, c_prev)))
