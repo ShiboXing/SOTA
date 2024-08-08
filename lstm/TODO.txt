@@ -1,2 +1,2 @@
 1. variances of the columns in the training matrix differ too
-    much 2. apply holiday feature column to the training matrix
+    much
