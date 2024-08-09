@@ -132,9 +132,6 @@ class Sales_Dataset(DS):
         self.O.index = pd.to_datetime(self.O.index)
         self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
 
-        # concat TR and TT
-        self.TR = pd.concat([self.TR, self.TT], axis=0).fillna(0)
-
         # apply holiday column to TR
         self.__apply_holidays__()
 
@@ -158,10 +155,9 @@ class Sales_Dataset(DS):
             max(self.TR.date),
         )
         self.num_days = len(pd.date_range(start=min_date, end=self.train_max_date))
-        if self.is_train:
-            self.num_store_samples = self.num_days - self.sample_seq_len  # predict T+1
-        else:
-            self.num_store_samples = 16  # last No. of days to be predicted
+        self.num_store_samples = (
+            self.num_days - self.sample_seq_len
+        )  # num of samples per store
 
         # store the base sales for inference purpose
         self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
@@ -180,32 +176,16 @@ class Sales_Dataset(DS):
 
         # extend TS to max date
         self.ids = sorted(list(set(self.S.index)))
-        for c in self.ids:
-            trans_tmp = pd.DataFrame(
-                index=pd.date_range(
-                    start=pd.to_datetime(self.train_max_date) + timedelta(days=1),
-                    end=pd.to_datetime(self.test_max_date),
-                ),
-                columns=["store_nbr", "transactions"],
-            )
-            trans_tmp.transactions = 0.0
-            trans_tmp.store_nbr = c
-            trans_tmp = (
-                trans_tmp.reset_index()
-                .rename(columns={"index": "date"})
-                .set_index("store_nbr")
-            )
-            self.TS = pd.concat((self.TS, trans_tmp), axis=0)
 
         # re-sort TS by (store # and date)
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
 
-        # construct the dataset's primary key
-        self.dates = self.TS.index.unique()
-
     def __len__(self):
-        return len(self.ids) * self.num_store_samples
+        if self.is_train:
+            return len(self.ids) * self.num_store_samples
+        else:
+            return len(self.ids)
 
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
