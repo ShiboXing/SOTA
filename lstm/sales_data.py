@@ -213,7 +213,7 @@ class Sales_Dataset(DS):
         # transform the sale data
         sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
         # make a column for each family of product
-        for d in sorted(list(set(sale_data.family))):
+        for d in sorted(self.families):
             sale_df = pd.concat(
                 [
                     sale_df,
@@ -252,22 +252,19 @@ class Sales_Dataset(DS):
             s_info.cluster,
             s_info.type,
         )
+        sale_df = sale_df[[*sale_df.columns[1:], sale_df.columns[0]]]
 
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
         # slice the samples in the date range
         start_t, end_t = local_id, local_id + self.sample_seq_len
-        cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
-
-        # store testset columns for inference purpose
-        self.test_cols = cols
 
         # output the sample
         data = sample[start_t:end_t]
-        label = torch.tensor(sale_df[cols].to_numpy(), dtype=torch.float32)[
+        label = torch.tensor(sale_df.to_numpy(), dtype=torch.float32)[
             start_t + 1 : end_t + 1
         ].to(self.device)
         if self.is_train:
             return data, label
         else:
-            return data, store_nbr
+            return data, store_nbr, sale_df.index[-1]

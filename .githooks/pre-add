@@ -3,7 +3,7 @@ set +e
 
 # formatting
 black * || true
-clang-format -i * || true
+# clang-format -i * || true
 
 # notebooks clear outputs" 
 find . -name "*.ipynb" | xargs jupyter nbconvert --inplace --ClearOutputPreprocessor.enabled=True
