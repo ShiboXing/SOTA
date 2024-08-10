@@ -161,6 +161,7 @@ class Sales_Dataset(DS):
 
         # store the base sales for inference purpose
         self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
+        self.base_sales = self.base_sales[["store_nbr", "date", "sales", "family"]]
 
         # preprocess return data
         self.TR.sales = self.get_log_ret(self.TR, "sales")
@@ -189,11 +190,11 @@ class Sales_Dataset(DS):
 
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
-        sequence_length * (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1))
+        sequence_length * (family(N)*2 + oil(1) + transaction(1) + city(1) + cluster(1) + type(1) + holiday(1))
         MEAN: 0
         MIN: -1
         MAX: 1
-        L * (33*2 + 3 + 3)
+        L * (33*2 + 6)
         """
         if self.is_train:
             store_id, local_id = (
@@ -213,7 +214,7 @@ class Sales_Dataset(DS):
         # transform the sale data
         sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
         # make a column for each family of product
-        for d in sorted(self.families):
+        for d in self.families:
             sale_df = pd.concat(
                 [
                     sale_df,
