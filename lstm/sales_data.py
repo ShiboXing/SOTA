@@ -195,8 +195,13 @@ class Sales_Dataset(DS):
         MAX: 1
         L * (33*2 + 3 + 3)
         """
-
-        store_id, local_id = idx // self.num_store_samples, idx % self.num_store_samples
+        if self.is_train:
+            store_id, local_id = (
+                idx // self.num_store_samples,
+                idx % self.num_store_samples,
+            )
+        else:
+            store_id, local_id = idx, 0
         store_nbr = self.ids[store_id]
         sale_data = self.TR.loc[store_nbr].set_index("date")
         sale_data.index = pd.to_datetime(sale_data.index)
@@ -265,4 +270,4 @@ class Sales_Dataset(DS):
         if self.is_train:
             return data, label
         else:
-            return data, label, store_nbr, sale_df.index[end_t]
+            return data, store_nbr
