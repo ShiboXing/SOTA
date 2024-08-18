@@ -108,13 +108,12 @@ class Sales_Dataset(DS):
         self.O = pd.read_csv(join(dir_pth, "oil.csv"), index_col=False)
         self.S = pd.read_csv(join(dir_pth, "stores.csv"), index_col=False)
         self.TR = pd.read_csv(join(dir_pth, "train.csv"), index_col=False)
-        self.TT = pd.read_csv(join(dir_pth, "test.csv"), index_col=False)
         self.TS = pd.read_csv(join(dir_pth, "transactions.csv"), index_col=False)
+        self.TT = pd.read_csv(join(dir_pth, "test.csv"), index_col=False)
         self.is_train = is_train
 
         # standardize the date column
         self.TR.date = pd.to_datetime(self.TR.date)
-        self.TT.date = pd.to_datetime(self.TT.date)
         self.TS.date = pd.to_datetime(self.TS.date)
         self.O.date = pd.to_datetime(self.O.date)
 
@@ -149,10 +148,9 @@ class Sales_Dataset(DS):
 
         # get statistics
         self.sample_seq_len = seq_len
-        min_date, self.train_max_date, self.test_max_date = (
+        min_date, self.train_max_date = (
             min(self.TS.date),
             max(self.TS.date),
-            max(self.TR.date),
         )
         self.num_days = len(pd.date_range(start=min_date, end=self.train_max_date))
         self.num_store_samples = (
@@ -167,6 +165,7 @@ class Sales_Dataset(DS):
         self.TR.sales = self.get_log_ret(self.TR, "sales")
         self.TR.onpromotion = self.get_log_ret(self.TR, "onpromotion")
         self.TS.transactions = self.get_log_ret(self.TS, "transactions")
+        self.TT.onpromotion = self.get_log_ret(self.TT, "onpromotion")
         self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
         if not self.is_train:
@@ -181,6 +180,18 @@ class Sales_Dataset(DS):
         # re-sort TS by (store # and date)
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
+        
+        tt_df = pd.DataFrame()
+        # transform the TT data
+        for d in self.families:
+            tt_df = pd.concat((
+                tt_df,
+                pd.DataFrame({
+                        f"{d}_onpromotion": self.TT[self.TT.family == d].onpromotion,
+                })
+            ), axis=1)
+        self.TT = tt_df
+
 
     def __len__(self):
         if self.is_train:
@@ -268,4 +279,6 @@ class Sales_Dataset(DS):
         if self.is_train:
             return data, label
         else:
-            return data, store_nbr, sale_df.index[-1]
+            return data, torch.tensor(self.TT.loc[store_nbr].to_numpy(), \
+                dtype=torch.float32).to(self.device), \
+                store_nbr, sale_df.index[-1]
