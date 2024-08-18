@@ -180,18 +180,24 @@ class Sales_Dataset(DS):
         # re-sort TS by (store # and date)
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
-        
+
         tt_df = pd.DataFrame()
         # transform the TT data
         for d in self.families:
-            tt_df = pd.concat((
-                tt_df,
-                pd.DataFrame({
-                        f"{d}_onpromotion": self.TT[self.TT.family == d].onpromotion,
-                })
-            ), axis=1)
+            tt_df = pd.concat(
+                (
+                    tt_df,
+                    pd.DataFrame(
+                        {
+                            f"{d}_onpromotion": self.TT[
+                                self.TT.family == d
+                            ].onpromotion,
+                        }
+                    ),
+                ),
+                axis=1,
+            )
         self.TT = tt_df
-
 
     def __len__(self):
         if self.is_train:
@@ -279,6 +285,11 @@ class Sales_Dataset(DS):
         if self.is_train:
             return data, label
         else:
-            return data, torch.tensor(self.TT.loc[store_nbr].to_numpy(), \
-                dtype=torch.float32).to(self.device), \
-                store_nbr, sale_df.index[-1]
+            test_promo = torch.tensor(
+                self.TT.loc[store_nbr].to_numpy(), dtype=torch.float32
+            ).to(self.device)
+            test_oil = torch.tensor(
+                self.O.loc[self.train_max_date + timedelta(days=1) :].to_numpy(),
+                dtype=torch.float32,
+            ).to(self.device)
+            return data, test_promo, test_oil, store_nbr, sale_df.index[-1]
