@@ -83,7 +83,7 @@ class Sales_Dataset(DS):
 
     def __apply_holidays__(self):
         self.TR = pd.merge(self.TR, self.S, on="store_nbr")
-        self.TR["hol"] = -0.5
+        self.TR["hol"] = 0
         for _, row in self.H.iterrows():
             if row.transferred == True:
                 continue
@@ -91,12 +91,12 @@ class Sales_Dataset(DS):
                 self.TR.loc[
                     (self.TR.date == row.date) & (self.TR.city == row.locale_name),
                     "hol",
-                ] = 0.5
+                ] = 0.2
             elif row.locale == "Regional":
                 self.TR.loc[
                     (self.TR.date == row.date) & (self.TR.state == row.locale_name),
                     "hol",
-                ] = 0.5
+                ] = 0.35
             else:
                 self.TR.loc[(self.TR.date == row.date), "hol"] = 0.5
 
