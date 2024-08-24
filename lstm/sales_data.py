@@ -270,6 +270,7 @@ class Sales_Dataset(DS):
             s_info.cluster,
             s_info.type,
         )
+        # place holiday at the last column
         sale_df = sale_df[[*sale_df.columns[1:], sale_df.columns[0]]]
 
         # combine the features into batch
@@ -282,6 +283,10 @@ class Sales_Dataset(DS):
         label = torch.tensor(sale_df.to_numpy(), dtype=torch.float32)[
             start_t + 1 : end_t + 1
         ].to(self.device)
+        label = torch.concat(
+            (label[:, :66:2], label[:, [67]]), axis=1
+        )  # extract 33 sales and 1 transaction column
+
         if self.is_train:
             return data, label
         else:
