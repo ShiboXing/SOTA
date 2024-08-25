@@ -122,12 +122,15 @@ class Sales_Dataset(DS):
         self.S.cluster = self.S.cluster.map(cluster_encoding)
         self.S = self.S[["store_nbr", "city", "cluster", "type"]]
         self.S = self.S.sort_values(["store_nbr"]).set_index(["store_nbr"])
-        
+
         # standardize the date column
         self.TR.date = pd.to_datetime(self.TR.date)
         self.TT.date = pd.to_datetime(self.TT.date)
         self.TS.date = pd.to_datetime(self.TS.date)
         self.O.date = pd.to_datetime(self.O.date)
+
+        # concat test and train data together
+        self.TR = pd.concat([self.TR, self.TT], axis=0).fillna(0)
 
         # order the rows
         self.TS.sort_values(["store_nbr", "date"], inplace=True)
@@ -135,9 +138,9 @@ class Sales_Dataset(DS):
         self.TR.drop("id", axis=1, inplace=True)
         self.TR.sort_values(["store_nbr", "family", "date"], inplace=True)
         self.TR.set_index(["store_nbr"], inplace=True)
-        self.TT.drop("id", axis=1, inplace=True)
-        self.TT.sort_values(["store_nbr", "family", "date"], inplace=True)
-        self.TT.set_index(["store_nbr"], inplace=True)
+        # self.TT.drop("id", axis=1, inplace=True)
+        # self.TT.sort_values(["store_nbr", "family", "date"], inplace=True)
+        # self.TT.set_index(["store_nbr"], inplace=True)
         self.O.sort_values(["date"], inplace=True)
         self.O.set_index(["date"], inplace=True)
         self.O.index = pd.to_datetime(self.O.index)
@@ -164,7 +167,7 @@ class Sales_Dataset(DS):
         self.TR.sales = self.get_log_ret(self.TR, "sales")
         self.TR.onpromotion = self.get_log_ret(self.TR, "onpromotion")
         self.TS.transactions = self.get_log_ret(self.TS, "transactions")
-        self.TT.onpromotion = self.get_log_ret(self.TT, "onpromotion")
+        # self.TT.onpromotion = self.get_log_ret(self.TT, "onpromotion")
         self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
         if not self.is_train:
@@ -180,7 +183,9 @@ class Sales_Dataset(DS):
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
 
+        # compute promotion returns for test
         tt_df = pd.DataFrame()
+        self.TT = self.TR[self.TR.date > self.train_max_date]
         # transform the TT data
         for d in self.families:
             tt_df = pd.concat(
@@ -297,4 +302,4 @@ class Sales_Dataset(DS):
                 self.O.loc[self.train_max_date + timedelta(days=1) :].to_numpy(),
                 dtype=torch.float32,
             ).to(self.device)
-            return data, test_promo, test_oil, store_nbr, sale_df.index[-1]
+            return data, test_promo, test_oil, store_nbr

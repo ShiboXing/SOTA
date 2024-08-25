@@ -7,6 +7,7 @@ from datetime import timedelta
 from ipdb import set_trace
 from torch.utils.data import Dataset as DS
 
+
 class Sales_Dataset(DS):
     @staticmethod
     def log_ret_2_sales(rets, base_price):
@@ -58,20 +59,25 @@ class Sales_Dataset(DS):
         # interpolate
         df = df.asfreq("D").interpolate()
         return Sales_Dataset.df_fix_float(df)
-    
+
     def set_log_rets(self, label: torch.Tensor, store_id, date):
         offset = 0
 
         # assign sales data
         for col in self.families:
-            self.TR.loc[(self.TR.index == store_id) & \
-                        (self.TR["family"] == col) & \
-                        (self.TR["date"] == date), "sales"] = label[offset].item()
+            self.TR.loc[
+                (self.TR.index == store_id)
+                & (self.TR["family"] == col)
+                & (self.TR["date"] == date),
+                "sales",
+            ] = label[offset].item()
 
             offset += 1
 
         # assign transaction data
-        self.TS.loc[(self.TS.index == store_id) & (self.TS["date"] == date), "transactions"] = label[-1].item()
+        self.TS.loc[
+            (self.TS.index == store_id) & (self.TS["date"] == date), "transactions"
+        ] = label[-1].item()
 
     def __init__(self, dir_pth, seq_len=500, is_train=True):
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
@@ -120,12 +126,16 @@ class Sales_Dataset(DS):
 
         # get statistics
         self.sample_seq_len = seq_len
-        min_date, self.train_max_date, self.test_max_date = min(self.TS.date), max(self.TS.date), max(self.TR.date)
+        min_date, self.train_max_date, self.test_max_date = (
+            min(self.TS.date),
+            max(self.TS.date),
+            max(self.TR.date),
+        )
         self.num_days = len(pd.date_range(start=min_date, end=self.train_max_date))
         if self.is_train:
-            self.num_store_samples = self.num_days - self.sample_seq_len # predict T+1
+            self.num_store_samples = self.num_days - self.sample_seq_len  # predict T+1
         else:
-            self.num_store_samples = 16 # last No. of days to be predicted
+            self.num_store_samples = 16  # last No. of days to be predicted
 
         # store the base sales for inference purpose
         self.base_sales = self.TR[self.TR.date == "2017-08-15"].reset_index()
@@ -138,19 +148,29 @@ class Sales_Dataset(DS):
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
         if not self.is_train:
             # remove all rows unused in inference
-            self.TR = self.TR[self.TR.date > self.train_max_date - timedelta(days=seq_len)] 
+            self.TR = self.TR[
+                self.TR.date > self.train_max_date - timedelta(days=seq_len)
+            ]
 
         # extend TS to max date
         self.ids = sorted(list(set(self.S.index)))
         for c in self.ids:
-            trans_tmp = pd.DataFrame(index=pd.date_range(start=pd.to_datetime(self.train_max_date) + timedelta(days=1), \
-                                                          end=pd.to_datetime(self.test_max_date)), \
-                                     columns=["store_nbr", "transactions"])
-            trans_tmp.transactions = 0.
+            trans_tmp = pd.DataFrame(
+                index=pd.date_range(
+                    start=pd.to_datetime(self.train_max_date) + timedelta(days=1),
+                    end=pd.to_datetime(self.test_max_date),
+                ),
+                columns=["store_nbr", "transactions"],
+            )
+            trans_tmp.transactions = 0.0
             trans_tmp.store_nbr = c
-            trans_tmp = trans_tmp.reset_index().rename(columns={"index": "date"}).set_index("store_nbr") 
+            trans_tmp = (
+                trans_tmp.reset_index()
+                .rename(columns={"index": "date"})
+                .set_index("store_nbr")
+            )
             self.TS = pd.concat((self.TS, trans_tmp), axis=0)
-        
+
         # re-sort TS by (store # and date)
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
@@ -158,11 +178,9 @@ class Sales_Dataset(DS):
         # construct the dataset's primary key
         self.dates = self.TS.index.unique()
 
-
     def __len__(self):
         return len(self.ids) * self.num_store_samples
-    
-    
+
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
         sequence_length * (family(N) + oil(1) + transaction(1) + city(1) + cluster(1) + type(1))
@@ -225,12 +243,12 @@ class Sales_Dataset(DS):
         sample = torch.zeros(
             sale_df.shape[0], sale_df.shape[1] + 3, dtype=torch.float32
         ).cuda()
-        sample[:, :sale_df.shape[1]] = torch.tensor(
+        sample[:, : sale_df.shape[1]] = torch.tensor(
             sale_df.to_numpy(), dtype=torch.float32
         )
         sample[:, -3:] = torch.tensor(s_data, dtype=torch.float32)
 
-        # slice the samples in the date range  
+        # slice the samples in the date range
         # local_id += 0 if self.is_train else self.num_days - self.sample_seq_len
         start_t, end_t = local_id, local_id + self.sample_seq_len
         cols = sale_df.filter(like="sales").columns.tolist() + ["transactions"]
@@ -240,9 +258,9 @@ class Sales_Dataset(DS):
 
         # output the sample
         data = sample[start_t:end_t]
-        label = torch.tensor(
-            sale_df[cols].to_numpy(), dtype=torch.float32
-        )[start_t+1 : end_t+1]
+        label = torch.tensor(sale_df[cols].to_numpy(), dtype=torch.float32)[
+            start_t + 1 : end_t + 1
+        ]
         if self.is_train:
             return data, label
         else:
