@@ -9,12 +9,10 @@ from torch.utils.data import Dataset as DS
 
 
 class Sales_Dataset(DS):
+
     @staticmethod
-    def log_ret_2_sales(rets, base_price):
-        sales = np.array([base_price])
-        for r in rets:
-            sales = np.append(sales, 10**r * sales[-1])
-        return sales[1:]
+    def ret_2_sale(data: torch.Tensor, base_sales: torch.Tensor):
+        return torch.pow(10, data) * base_sales
 
     def get_log_ret(self, df: pd.DataFrame, y_col: str):
         """Calculate in-place the log returns of y_col"""
