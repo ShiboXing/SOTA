@@ -148,9 +148,10 @@ class Sales_Dataset(DS):
 
         # get statistics
         self.sample_seq_len = seq_len
-        min_date, self.train_max_date = (
+        min_date, self.train_max_date, self.total_max_date = (
             min(self.TS.date),
             max(self.TS.date),
+            max(self.TR.date),
         )
         self.num_days = len(pd.date_range(start=min_date, end=self.train_max_date))
         self.num_store_samples = (
@@ -171,7 +172,7 @@ class Sales_Dataset(DS):
         if not self.is_train:
             # remove all rows unused in inference
             self.TR = self.TR[
-                self.TR.date > self.train_max_date - timedelta(days=seq_len)
+                self.TR.date >= self.total_max_date - timedelta(days=seq_len + 1)
             ]
 
         # extend TS to max date
@@ -184,6 +185,7 @@ class Sales_Dataset(DS):
         # compute promotion returns for test
         tt_df = pd.DataFrame()
         self.TT = self.TR[self.TR.date > self.train_max_date]
+        self.INFER_DAYS = len(set(self.TT.date))
         # transform the TT data
         for d in self.families:
             tt_df = pd.concat(
@@ -283,8 +285,12 @@ class Sales_Dataset(DS):
 
         # output the sample
         data = sample[start_t:end_t]
+
+        # fill the predicted output slots with oil returns
+        data[-self.INFER_DAYS :, :66:2] = data[-self.INFER_DAYS :, [-5]]  # oil
+        data[-self.INFER_DAYS :, [66]] = data[-self.INFER_DAYS :, [-5]]  # oil
         label = torch.tensor(sale_df.to_numpy(), dtype=torch.float32)[
-            start_t + 1 : end_t + 1
+            end_t - 16 : end_t
         ].to(self.device)
         label = torch.concat(
             (label[:, :66:2], label[:, [67]]), axis=1
@@ -293,11 +299,4 @@ class Sales_Dataset(DS):
         if self.is_train:
             return data, label
         else:
-            test_promo = torch.tensor(
-                self.TT.loc[store_nbr].to_numpy(), dtype=torch.float32
-            ).to(self.device)
-            test_oil = torch.tensor(
-                self.O.loc[self.train_max_date + timedelta(days=1) :].to_numpy(),
-                dtype=torch.float32,
-            ).to(self.device)
-            return data, test_promo, test_oil, store_nbr
+            return data, store_nbr
