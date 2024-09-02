@@ -283,18 +283,10 @@ class Sales_Dataset(DS):
         # slice the samples in the date range
         start_t, end_t = local_id, local_id + self.sample_seq_len
 
-        # output the sample
-        data = sample[start_t:end_t]
-
-        # fill the predicted output slots with oil returns
-        data[-self.INFER_DAYS :, :66:2] = data[-self.INFER_DAYS :, [-5]]  # oil
-        data[-self.INFER_DAYS :, [66]] = data[-self.INFER_DAYS :, [-5]]  # oil
-        label = torch.tensor(sale_df.to_numpy(), dtype=torch.float32)[
-            end_t - 16 : end_t
-        ].to(self.device)
-        label = torch.concat(
-            (label[:, :66:2], label[:, [67]]), axis=1
-        )  # extract 33 sales and 1 transaction column
+        # output the training data and label
+        data = sample[start_t:end_t].clone().detach().to(self.device)
+        label = sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS]
+        label = label[:, :66:2]  # predict sales columns only
 
         if self.is_train:
             return data, label
