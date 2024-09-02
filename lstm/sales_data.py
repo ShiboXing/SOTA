@@ -172,7 +172,7 @@ class Sales_Dataset(DS):
         if not self.is_train:
             # remove all rows unused in inference
             self.TR = self.TR[
-                self.TR.date >= self.total_max_date - timedelta(days=seq_len + 1)
+                self.TR.date > self.total_max_date - timedelta(days=seq_len)
             ]
 
         # extend TS to max date
@@ -284,11 +284,14 @@ class Sales_Dataset(DS):
         start_t, end_t = local_id, local_id + self.sample_seq_len
 
         # output the training data and label
-        data = sample[start_t:end_t].clone().detach().to(self.device)
+        base_data = sample[start_t:end_t]
         label = sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS]
+        tgt_data = label[
+            :, [i for i in range(1, 66, 2)] + [66, 67]
+        ]  # promos, oil and transaction
         label = label[:, :66:2]  # predict sales columns only
 
         if self.is_train:
-            return data, label
+            return base_data, tgt_data, label
         else:
-            return data, store_nbr
+            return base_data, tgt_data, store_nbr
