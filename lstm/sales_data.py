@@ -22,6 +22,13 @@ class Sales_Dataset(DS):
 
         return Sales_Dataset.df_fix_float(rets)
 
+    def get_log_ret_v2(self, A: torch.tensor, B: torch.tensor):
+        """Calculate in-place the log returns of y_col"""
+        # suppress divide by zero
+        X = B / A
+        rets = torch.log10(X)
+        return torch.nan_to_num(rets, nan=0.0, posinf=1, neginf=0.0)
+
     def z_series(self, df: pd.Series, clip=False):
         """
         Normalize dataframe series while eliminating the effect of zeros
@@ -32,7 +39,10 @@ class Sales_Dataset(DS):
         return (df - df.mean()) / df.std()
 
     def get_nominal_dict(self, df: pd.Series):
-        d = {elem: i for i, elem in enumerate(sorted(set(df)))}
+        # ensure that replicability of nominal encoding
+        sorted_keys = sorted(set(df))
+
+        d = {elem: i for i, elem in enumerate(sorted_keys)}
         vals = np.array(list(d.values()))
         z_vals = self.z_series(vals)
         d.update(zip(d.keys(), z_vals))
@@ -136,9 +146,6 @@ class Sales_Dataset(DS):
         self.TR.drop("id", axis=1, inplace=True)
         self.TR.sort_values(["store_nbr", "family", "date"], inplace=True)
         self.TR.set_index(["store_nbr"], inplace=True)
-        # self.TT.drop("id", axis=1, inplace=True)
-        # self.TT.sort_values(["store_nbr", "family", "date"], inplace=True)
-        # self.TT.set_index(["store_nbr"], inplace=True)
         self.O.sort_values(["date"], inplace=True)
         self.O.set_index(["date"], inplace=True)
         self.O.index = pd.to_datetime(self.O.index)
@@ -163,17 +170,12 @@ class Sales_Dataset(DS):
         self.base_sales = self.base_sales[["store_nbr", "date", "sales", "family"]]
 
         # preprocess return data
+        self.TR_OG = self.TR.copy()  # for building labels
         self.TR.sales = self.get_log_ret(self.TR, "sales")
         self.TR.onpromotion = self.get_log_ret(self.TR, "onpromotion")
         self.TS.transactions = self.get_log_ret(self.TS, "transactions")
-        # self.TT.onpromotion = self.get_log_ret(self.TT, "onpromotion")
         self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
-        if not self.is_train:
-            # remove all rows unused in inference
-            self.TR = self.TR[
-                self.TR.date > self.total_max_date - timedelta(days=seq_len)
-            ]
 
         # extend TS to max date
         self.ids = sorted(list(set(self.S.index)))
@@ -182,26 +184,13 @@ class Sales_Dataset(DS):
         self.TS = self.TS.reset_index().sort_values(["store_nbr", "date"])
         self.TS.set_index(["store_nbr"], inplace=True)
 
-        # compute promotion returns for test
-        tt_df = pd.DataFrame()
-        self.TT = self.TR[self.TR.date > self.train_max_date]
-        self.INFER_DAYS = len(set(self.TT.date))
-        # transform the TT data
-        for d in self.families:
-            tt_df = pd.concat(
-                (
-                    tt_df,
-                    pd.DataFrame(
-                        {
-                            f"{d}_onpromotion": self.TT[
-                                self.TT.family == d
-                            ].onpromotion,
-                        }
-                    ),
-                ),
-                axis=1,
-            )
-        self.TT = tt_df
+        self.INFER_DAYS = len(set(self.TR[self.TR.date > self.train_max_date].date))
+        if not self.is_train:
+            # remove all rows unused in inference
+            self.TR = self.TR[
+                self.TR.date
+                > self.total_max_date - timedelta(days=seq_len + self.INFER_DAYS)
+            ]
 
     def __len__(self):
         if self.is_train:
@@ -232,11 +221,18 @@ class Sales_Dataset(DS):
             pd.to_datetime(sale_data.index[-1]),
         )
 
+        # nominal sales data
+        og_sale_data = self.TR_OG.loc[store_nbr].set_index("date")
+        og_sale_data.index = pd.to_datetime(og_sale_data.index)
+
         # transform the sale data
         # sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
+
         sale_df = pd.DataFrame()
+        sale_og_df = pd.DataFrame()
         # make a column for each family of product
         for d in self.families:
+            # make column for sales, promo returns
             sale_df = pd.concat(
                 [
                     sale_df,
@@ -259,9 +255,20 @@ class Sales_Dataset(DS):
                 ],
                 axis=1,
             )
+            # make column for nominal sales to build labels
+            sale_og_df = pd.concat(
+                [
+                    sale_og_df,
+                    pd.DataFrame(
+                        {f"{d}_sales": og_sale_data[og_sale_data.family == d].sales}
+                    ),
+                ],
+                axis=1,
+            )
 
         # fix the data on the missing dates
         sale_df = self.df_adjust_date(sale_df, start_date, end_date)
+        sale_og_df = self.df_adjust_date(sale_og_df, start_date, end_date)
         trans_data = self.TS.loc[store_nbr].set_index("date")
         trans_data = self.df_adjust_date(trans_data, start_date, end_date)
         oil_data = self.df_adjust_date(self.O, start_date, end_date)
@@ -280,18 +287,29 @@ class Sales_Dataset(DS):
 
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
+        label_sample = torch.tensor(sale_og_df.to_numpy(), dtype=torch.float32).to(
+            self.device
+        )
         # slice the samples in the date range
         start_t, end_t = local_id, local_id + self.sample_seq_len
 
         # output the training data and label
         base_data = sample[start_t:end_t]
-        label = sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS]
-        tgt_data = label[
-            :, [i for i in range(1, 66, 2)] + [66, 67]
+
+        tgt_data = sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS]
+        tgt_data = tgt_data[
+            :, [67] + [i for i in range(1, 66, 2)] + [66, 67]
         ]  # promos, oil and transaction
-        label = label[:, :66:2]  # predict sales columns only
+
+        label_t0 = label_sample[start_t:end_t].to(self.device)
+        label_t16 = label_sample[
+            start_t + self.INFER_DAYS : end_t + self.INFER_DAYS
+        ].to(self.device)
+        label = self.get_log_ret_v2(label_t0, label_t16).to(
+            self.device
+        )  # sales ret columns
 
         if self.is_train:
             return base_data, tgt_data, label
         else:
-            return base_data, tgt_data, store_nbr
+            return base_data, tgt_data, label_t0, store_nbr
