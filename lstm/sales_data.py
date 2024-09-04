@@ -12,7 +12,8 @@ class Sales_Dataset(DS):
 
     @staticmethod
     def ret_2_sale(data: torch.Tensor, base_sales: torch.Tensor):
-        return torch.pow(10, data) * base_sales
+        # (torch.exp(log_returns) - 1 + 1）* base_sales
+        return torch.exp(data) * base_sales
 
     def get_log_ret(self, df: pd.DataFrame, y_col: str):
         """Calculate in-place the log returns of y_col"""
@@ -25,8 +26,8 @@ class Sales_Dataset(DS):
     def get_log_ret_v2(self, A: torch.tensor, B: torch.tensor):
         """Calculate in-place the log returns of y_col"""
         # suppress divide by zero
-        X = B / A
-        rets = torch.log10(X)
+        X = B / A - 1
+        rets = torch.log1p(X)
         return torch.nan_to_num(rets, nan=0.0, posinf=1, neginf=0.0)
 
     def z_series(self, df: pd.Series, clip=False):
@@ -118,6 +119,9 @@ class Sales_Dataset(DS):
         self.TT = pd.read_csv(join(dir_pth, "test.csv"), index_col=False)
         self.is_train = is_train
 
+        # apply holiday column to TR
+        # self.__apply_holidays__()
+
         # preprocess nominal data
         self.store_nbrs = set(self.TR.index)
         self.families = sorted(list(set(self.TR["family"])))
@@ -149,9 +153,6 @@ class Sales_Dataset(DS):
         self.O.sort_values(["date"], inplace=True)
         self.O.set_index(["date"], inplace=True)
         self.O.index = pd.to_datetime(self.O.index)
-
-        # apply holiday column to TR
-        # self.__apply_holidays__()
 
         # get statistics
         self.sample_seq_len = seq_len
