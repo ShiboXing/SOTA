@@ -30,14 +30,17 @@ class Sales_Dataset(DS):
         rets = torch.log1p(X)
         return torch.nan_to_num(rets, nan=0.0, posinf=1, neginf=0.0)
 
-    def z_series(self, df: pd.Series, clip=False):
+    def z_series(self, df: pd.DataFrame, clip=False):
         """
         Normalize dataframe series while eliminating the effect of zeros
         """
         # df_tmp = df[df != 0.0]
+        stddev = df.std()
+        if type(stddev) != np.float64 and type(stddev) != np.float32:
+            stddev[stddev == 0.0] = 1.0  # prevent div by 0
         if clip:
-            df = df.clip(lower=df.mean() - 2 * df.std(), upper=df.mean() + 2 * df.std())
-        return (df - df.mean()) / df.std()
+            df = df.clip(lower=df.mean() - 2 * stddev, upper=df.mean() + 2 * stddev)
+        return (df - df.mean()) / stddev
 
     def get_nominal_dict(self, df: pd.Series):
         # ensure that replicability of nominal encoding
