@@ -186,6 +186,8 @@ class Sales_Dataset(DS):
         self.TS.set_index(["store_nbr"], inplace=True)
 
         self.INFER_DAYS = len(set(self.TR[self.TR.date > self.train_max_date].date))
+        self.TR.sales += 0.001
+        self.TR.onpromotion += 0.001
         if not self.is_train:
             # remove all rows unused in inference
             self.TR = self.TR[
@@ -278,14 +280,14 @@ class Sales_Dataset(DS):
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
         s_info = self.S.loc[(store_nbr)]
-        sale_df["city"], sale_df["cluster"], sale_df["type"] = (
-            s_info.city,
-            s_info.cluster,
-            s_info.type,
-        )
+        # sale_df["city"], sale_df["cluster"], sale_df["type"] = (
+        #     s_info.city,
+        #     s_info.cluster,
+        #     s_info.type,
+        # )
         # place holiday at the last column
         # sale_df = sale_df[[*sale_df.columns[1:]]] #, sale_df.columns[0]]]
-
+        sale_df = self.z_series(sale_df)
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
         label_sample = torch.tensor(sale_og_df.to_numpy(), dtype=torch.float32).to(
