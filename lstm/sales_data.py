@@ -25,7 +25,6 @@ class Sales_Dataset(DS):
 
     def get_log_ret_v2(self, A: torch.tensor, B: torch.tensor):
         """Calculate in-place the log returns of y_col"""
-        # suppress divide by zero
         X = B / A - 1
         rets = torch.log1p(X)
         return torch.nan_to_num(rets, nan=0.0, posinf=1, neginf=0.0)
@@ -282,7 +281,7 @@ class Sales_Dataset(DS):
         # append other features (oil, transaction)
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
-        s_info = self.S.loc[(store_nbr)]
+        # s_info = self.S.loc[(store_nbr)]
         # sale_df["city"], sale_df["cluster"], sale_df["type"] = (
         #     s_info.city,
         #     s_info.cluster,
@@ -301,11 +300,15 @@ class Sales_Dataset(DS):
 
         # output the training data and label
         base_data = sample[start_t:end_t]
-
-        tgt_data = sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS]
-        tgt_data = tgt_data[
-            :, [67] + [i for i in range(1, 66, 2)] + [66, 67]
-        ]  # promos, oil and transaction
+        base_data = torch.concat(
+            (
+                sample[start_t:end_t][:, :66:2],
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][:, 1:66:2],
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][:, 66:68],
+            ),
+            axis=1,
+        )
+        tgt_data = sample[start_t:end_t][:, :66:2]
 
         label_t0 = label_sample[start_t:end_t].to(self.device)
         label_t16 = label_sample[
