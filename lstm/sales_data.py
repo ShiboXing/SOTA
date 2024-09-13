@@ -300,23 +300,35 @@ class Sales_Dataset(DS):
 
         # output the training data and label
         base_data = sample[start_t:end_t]
+        t_sale_rets = sample[start_t:end_t][:, :66:2]
         base_data = torch.concat(
             (
-                sample[start_t:end_t][:, :66:2],
-                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][:, 1:66:2],
-                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][:, 66:68],
+                base_data,  # T sales, promo
+                sample[start_t:end_t][:, 66:68],  # T oil, trans
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
+                    :, 1:66:2
+                ],  # T+n promo
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
+                    :, 66:68
+                ],  # T+n oil, trans
             ),
             axis=1,
         )
-        tgt_data = sample[start_t:end_t][:, :66:2]
 
         label_t0 = label_sample[start_t:end_t].to(self.device)
-        label_t16 = label_sample[
-            start_t + self.INFER_DAYS : end_t + self.INFER_DAYS
-        ].to(self.device)
-        label = self.get_log_ret_v2(label_t0, label_t16).to(
+        label = torch.zeros(self.sample_seq_len, 33 * self.INFER_DAYS).to(self.device)
+        tgt_data = torch.zeros(self.sample_seq_len, 33 * self.INFER_DAYS).to(
             self.device
-        )  # sales ret columns
+        )
+        for i in range(
+            1, self.INFER_DAYS + 1
+        ):  # for every time step T, predict all family class from T+1 to T+16 (dim = 16*33)
+            label_ti = label_sample[start_t + i : end_t + i].to(self.device)
+            label_rets = self.get_log_ret_v2(label_t0, label_ti).to(
+                self.device
+            )  # sales ret columns
+            label[:, (i - 1) * 33 : i * 33] = label_rets
+            tgt_data[:, (i - 1) * 33 : i * 33] = t_sale_rets
 
         if self.is_train:
             return base_data, tgt_data, label
