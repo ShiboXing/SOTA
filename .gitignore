@@ -10,6 +10,9 @@ __pycache__
 # jupyter
 .ipynb_checkpoints
 
+# pandas
+*.csv
+
 # torch
 *.pth
 

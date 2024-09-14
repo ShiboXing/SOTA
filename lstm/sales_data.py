@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 from os.path import join
 import numpy as np
 import torch
@@ -92,7 +93,8 @@ class Sales_Dataset(DS):
 
     def __apply_holidays__(self):
         self.TR = pd.merge(self.TR, self.S, on="store_nbr")
-        self.TR["hol"] = 0
+        self.TR["hol"] = 0.0
+        self.TR["hol"] = self.TR["hol"].astype("float32")
         for _, row in self.H.iterrows():
             if row.transferred == True:
                 continue
@@ -122,7 +124,12 @@ class Sales_Dataset(DS):
         self.is_train = is_train
 
         # apply holiday column to TR
-        # self.__apply_holidays__()
+        _TR_hol_cache_ = "TR_hol_cache.csv"
+        if os.path.exists(_TR_hol_cache_):
+            self.TR = pd.read_pickle(_TR_hol_cache_)
+        else:
+            self.__apply_holidays__()
+            self.TR.to_pickle("TR_hol_cache.csv")
 
         # preprocess nominal data
         self.store_nbrs = set(self.TR.index)
@@ -231,9 +238,7 @@ class Sales_Dataset(DS):
         og_sale_data.index = pd.to_datetime(og_sale_data.index)
 
         # transform the sale data
-        # sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
-
-        sale_df = pd.DataFrame()
+        sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
         sale_og_df = pd.DataFrame()
         # make a column for each family of product
         for d in self.families:
@@ -287,8 +292,6 @@ class Sales_Dataset(DS):
         #     s_info.cluster,
         #     s_info.type,
         # )
-        # place holiday at the last column
-        # sale_df = sale_df[[*sale_df.columns[1:]]] #, sale_df.columns[0]]]
         sale_df = self.z_series(sale_df)
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
