@@ -12,9 +12,12 @@ from torch.utils.data import Dataset as DS
 class Sales_Dataset(DS):
 
     @staticmethod
-    def ret_2_sale(data: torch.Tensor, base_sales: torch.Tensor):
+    def batched_ret_2_sales(
+        base_sales: torch.Tensor, rets1: torch.Tensor, rets2: torch.Tensor
+    ):
         # (torch.exp(log_returns) - 1 + 1）* base_sales
-        return torch.exp(data) * base_sales
+        base_sales = base_sales.repeat(1, 1, rets1.shape[2] // base_sales.shape[2])
+        return torch.exp(rets1) * (base_sales + rets2)
 
     def get_log_ret(self, df: pd.DataFrame, y_col: str):
         """Calculate in-place the log returns of y_col"""
@@ -304,36 +307,42 @@ class Sales_Dataset(DS):
         # output the training data and label
         base_data = sample[start_t:end_t]
         t_sale_rets = sample[start_t:end_t][:, :66:2]
-        base_data = torch.concat(
+        tgt_data = torch.concat(
             (
-                base_data,  # T sales, promo
-                sample[start_t:end_t][:, 66:68],  # T oil, trans
                 sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
-                    :, 1:66:2
-                ],  # T+n promo
+                    :, [0]
+                ],  # T+n hols
                 sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
-                    :, 66:68
-                ],  # T+n oil, trans
+                    :, 2:67:2
+                ],  # T+n promos
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][:, [67]],
             ),
             axis=1,
         )
-
         label_t0 = label_sample[start_t:end_t].to(self.device)
         label = torch.zeros(self.sample_seq_len, 33 * self.INFER_DAYS).to(self.device)
-        tgt_data = torch.zeros(self.sample_seq_len, 33 * self.INFER_DAYS).to(
-            self.device
+        tgt_data = tgt_data.repeat(1, 33 * self.INFER_DAYS // tgt_data.shape[1])
+        tgt_data = torch.concat(
+            (
+                tgt_data,
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
+                    :, [67, 67, 67]
+                ],
+            ),
+            axis=1,
         )
         for i in range(
             1, self.INFER_DAYS + 1
         ):  # for every time step T, predict all family class from T+1 to T+16 (dim = 16*33)
-            label_ti = label_sample[start_t + i : end_t + i].to(self.device)
-            label_rets = self.get_log_ret_v2(label_t0, label_ti).to(
+            label[:, (i - 1) * 33 : i * 33] = label_sample[start_t + i : end_t + i].to(
                 self.device
-            )  # sales ret columns
-            label[:, (i - 1) * 33 : i * 33] = label_rets
-            tgt_data[:, (i - 1) * 33 : i * 33] = t_sale_rets
+            )
+            # label_rets = self.get_log_ret_v2(label_t0, label_ti).to(
+            #     self.device
+            # )  # sales ret columns
+            # label[:, (i - 1) * 33 : i * 33] = label_rets
 
         if self.is_train:
-            return base_data, tgt_data, label
+            return base_data, tgt_data, label_t0, label
         else:
             return base_data, tgt_data, label_t0, store_nbr
