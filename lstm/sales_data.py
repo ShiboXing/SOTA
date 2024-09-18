@@ -198,6 +198,7 @@ class Sales_Dataset(DS):
         self.TS.set_index(["store_nbr"], inplace=True)
 
         self.INFER_DAYS = len(set(self.TR[self.TR.date > self.train_max_date].date))
+        self.FEATURES = self.INFER_DAYS * 33
         self.TR.sales += 0.001
         self.TR.onpromotion += 0.001
         if not self.is_train:
@@ -306,7 +307,16 @@ class Sales_Dataset(DS):
 
         # output the training data and label
         base_data = sample[start_t:end_t]
-        t_sale_rets = sample[start_t:end_t][:, :66:2]
+        base_data = base_data.repeat(1, self.FEATURES // base_data.shape[1])
+        base_data = torch.concat(
+            (
+                base_data,
+                base_data[
+                    :, [66] * (self.FEATURES - base_data.shape[1])
+                ],  # duplicate oil feature for the rest
+            ),
+            axis=1,
+        )
         tgt_data = torch.concat(
             (
                 sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
@@ -320,8 +330,8 @@ class Sales_Dataset(DS):
             axis=1,
         )
         label_t0 = label_sample[start_t:end_t].to(self.device)
-        label = torch.zeros(self.sample_seq_len, 33 * self.INFER_DAYS).to(self.device)
-        tgt_data = tgt_data.repeat(1, 33 * self.INFER_DAYS // tgt_data.shape[1])
+        label = torch.zeros(self.sample_seq_len, self.FEATURES).to(self.device)
+        tgt_data = tgt_data.repeat(1, self.FEATURES // tgt_data.shape[1])
         tgt_data = torch.concat(
             (
                 tgt_data,

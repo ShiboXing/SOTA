@@ -19,5 +19,5 @@ class Predictor(nn.Module):
 
     def forward(self, x1, x2):
         o1, (_, _) = self.lstm(x1)
-        o2 = self.trans(o1, x2)
+        o2 = self.trans(x1, x2)
         return o1, self.relu(o2)
