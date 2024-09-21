@@ -32,6 +32,7 @@ class Sales_Dataset(DS):
         X = B / A - 1
         rets = torch.log1p(X)
         return torch.nan_to_num(rets, nan=0.0, posinf=1, neginf=0.0)
+    
 
     def z_series(self, df: pd.DataFrame, clip=False):
         """
@@ -116,6 +117,18 @@ class Sales_Dataset(DS):
 
         self.TR = self.TR.drop(["city", "state", "type", "cluster"], axis=1)
 
+
+    @staticmethod
+    def create_date_encodings(df: pd.DataFrame):
+        """
+        in-place encode all dates within a year, invariant to year number
+        """
+        generic_dates = pd.date_range(start="2024-01-01", end="2024-12-31", freq='D')
+        values = np.linspace(-0.5, 0.5, len(generic_dates))
+        date_mapping = {date.strftime('%m-%d'): value for date, value in zip(generic_dates, values)}
+        df["date_enc"] = df["date"].apply(lambda x: date_mapping[x.strftime('%m-%d')])
+
+
     def __init__(self, dir_pth, seq_len=500, is_train=True, device="cpu"):
         self.device = device
         self.H = pd.read_csv(join(dir_pth, "holidays_events.csv"), index_col=False)
@@ -189,6 +202,7 @@ class Sales_Dataset(DS):
         self.TS.transactions = self.get_log_ret(self.TS, "transactions")
         self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
+        Sales_Dataset.create_date_encodings(self.TR) # create date encodings feature
 
         # extend TS to max date
         self.ids = sorted(list(set(self.S.index)))
@@ -242,7 +256,7 @@ class Sales_Dataset(DS):
         og_sale_data.index = pd.to_datetime(og_sale_data.index)
 
         # transform the sale data
-        sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol"]]
+        sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol", "date_enc"]]
         sale_og_df = pd.DataFrame()
         # make a column for each family of product
         for d in self.families:
@@ -290,13 +304,9 @@ class Sales_Dataset(DS):
         # append other features (oil, transaction)
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
-        # s_info = self.S.loc[(store_nbr)]
-        # sale_df["city"], sale_df["cluster"], sale_df["type"] = (
-        #     s_info.city,
-        #     s_info.cluster,
-        #     s_info.type,
-        # )
-        sale_df = self.z_series(sale_df)
+        
+        sale_df.values[:] += sale_df.date_enc.values.reshape(-1, 1)
+        sale_df = self.z_series(sale_df.drop(columns=["date_enc"]))
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
         label_sample = torch.tensor(sale_og_df.to_numpy(), dtype=torch.float32).to(
@@ -312,7 +322,7 @@ class Sales_Dataset(DS):
             (
                 base_data,
                 base_data[
-                    :, [66] * (self.FEATURES - base_data.shape[1])
+                    :, [67, 68, 68] * ((self.FEATURES - base_data.shape[1]) // 3)
                 ],  # duplicate oil feature for the rest
             ),
             axis=1,
@@ -347,11 +357,7 @@ class Sales_Dataset(DS):
             label[:, (i - 1) * 33 : i * 33] = label_sample[start_t + i : end_t + i].to(
                 self.device
             )
-            # label_rets = self.get_log_ret_v2(label_t0, label_ti).to(
-            #     self.device
-            # )  # sales ret columns
-            # label[:, (i - 1) * 33 : i * 33] = label_rets
-
+            
         if self.is_train:
             return base_data, tgt_data, label_t0, label
         else:
