@@ -1,2 +1,0 @@
-1. variances of the columns in the training matrix differ too
-    much
