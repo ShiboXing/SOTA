@@ -1,5 +1,5 @@
 """
-Validate if the custom LSTM produces produces the same values as the torch.nn.LSTM
+Validate if the custom LSTM produces the same values as the torch.nn.LSTM
 forward and backward
 """
 
