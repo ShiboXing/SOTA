@@ -32,7 +32,6 @@ class Sales_Dataset(DS):
         X = B / A - 1
         rets = torch.log1p(X)
         return torch.nan_to_num(rets, nan=0.0, posinf=1, neginf=0.0)
-    
 
     def z_series(self, df: pd.DataFrame, clip=False):
         """
@@ -117,17 +116,17 @@ class Sales_Dataset(DS):
 
         self.TR = self.TR.drop(["city", "state", "type", "cluster"], axis=1)
 
-
     @staticmethod
     def create_date_encodings(df: pd.DataFrame):
         """
         in-place encode all dates within a year, invariant to year number
         """
-        generic_dates = pd.date_range(start="2024-01-01", end="2024-12-31", freq='D')
+        generic_dates = pd.date_range(start="2024-01-01", end="2024-12-31", freq="D")
         values = np.linspace(-0.5, 0.5, len(generic_dates))
-        date_mapping = {date.strftime('%m-%d'): value for date, value in zip(generic_dates, values)}
-        df["date_enc"] = df["date"].apply(lambda x: date_mapping[x.strftime('%m-%d')])
-
+        date_mapping = {
+            date.strftime("%m-%d"): value for date, value in zip(generic_dates, values)
+        }
+        df["date_enc"] = df["date"].apply(lambda x: date_mapping[x.strftime("%m-%d")])
 
     def __init__(self, dir_pth, seq_len=500, is_train=True, device="cpu"):
         self.device = device
@@ -202,7 +201,7 @@ class Sales_Dataset(DS):
         self.TS.transactions = self.get_log_ret(self.TS, "transactions")
         self.O = self.O.asfreq("D").interpolate()
         self.O.dcoilwtico = self.get_log_ret(self.O, "dcoilwtico")
-        Sales_Dataset.create_date_encodings(self.TR) # create date encodings feature
+        Sales_Dataset.create_date_encodings(self.TR)  # create date encodings feature
 
         # extend TS to max date
         self.ids = sorted(list(set(self.S.index)))
@@ -256,7 +255,9 @@ class Sales_Dataset(DS):
         og_sale_data.index = pd.to_datetime(og_sale_data.index)
 
         # transform the sale data
-        sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][["hol", "date_enc"]]
+        sale_df = sale_data[sale_data.family == sale_data.iloc[0].family][
+            ["hol", "date_enc"]
+        ]
         sale_og_df = pd.DataFrame()
         # make a column for each family of product
         for d in self.families:
@@ -304,7 +305,7 @@ class Sales_Dataset(DS):
         # append other features (oil, transaction)
         sale_df = pd.concat([sale_df, oil_data], axis=1)
         sale_df = pd.concat([sale_df, trans_data], axis=1)
-        
+
         sale_df.values[:] += sale_df.date_enc.values.reshape(-1, 1)
         sale_df = self.z_series(sale_df.drop(columns=["date_enc"]))
         # combine the features into batch
@@ -314,6 +315,10 @@ class Sales_Dataset(DS):
         )
         # slice the samples in the date range
         start_t, end_t = local_id, local_id + self.sample_seq_len
+        start_day, end_day = (
+            sale_df.index[start_t].dayofyear - 1,
+            sale_df.index[end_t].dayofyear,
+        )
 
         # output the training data and label
         base_data = sample[start_t:end_t]
@@ -357,8 +362,8 @@ class Sales_Dataset(DS):
             label[:, (i - 1) * 33 : i * 33] = label_sample[start_t + i : end_t + i].to(
                 self.device
             )
-            
+
         if self.is_train:
-            return base_data, tgt_data, label_t0, label
+            return base_data, tgt_data, label_t0, label, (start_day, end_day)
         else:
-            return base_data, tgt_data, label_t0, store_nbr
+            return base_data, tgt_data, label_t0, store_nbr, (start_day, end_day)
