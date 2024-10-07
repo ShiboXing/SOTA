@@ -6,26 +6,28 @@ import torch
 
 class Predictor(nn.Module):
 
+
     def __init__(self, I, H, LSTM_LAYER, TRANSFORMER_LAYER, HEAD, max_seq):
         super(Predictor, self).__init__()
-        self.lstm = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
-        self.trans = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
-        # self.trans = Transformer(
-        #     d_model=H,
-        #     nhead=HEAD,
-        #     num_encoder_layers=TRANSFORMER_LAYER,
-        #     num_decoder_layers=TRANSFORMER_LAYER,
-        #     batch_first=True,
-        # )
+        self.lstm = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True).cuda()
+        # self.trans = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True).cuda()
+        self.trans = Transformer(
+            d_model=H,
+            nhead=HEAD,
+            num_encoder_layers=TRANSFORMER_LAYER,
+            num_decoder_layers=TRANSFORMER_LAYER,
+            batch_first=True,
+        )
         self.relu = nn.ReLU()
         self.freqs = self.precompute_freqs_cis(H, max_seq)
+
 
     def forward(self, x1, x2):
         x1, x2 = Predictor.apply_rotary_emb(x1, x2, freqs_cis=self.freqs)
         o1, (_, _) = self.lstm(x1)
-        # o2 = self.trans(x1, x2)
-        o2, (_, _) = self.trans(x2)
-        return o1, o2
+        o2 = self.trans(x1, x2)
+        return o1, self.relu(o2)
+    
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
         """
@@ -43,16 +45,14 @@ class Predictor(nn.Module):
         Returns:
             torch.Tensor: Precomputed frequency tensor with complex exponentials.
         """
-        device = torch.device("cuda")  # next(self.lstm.parameters())[0].device
-        freqs = 1.0 / (
-            theta
-            ** (torch.arange(0, dim, 2, device=device)[: (dim // 2)].float() / dim)
-        )
+        device = next(self.lstm.parameters())[0].device
+        freqs = 1.0 / (theta ** (torch.arange(0, dim, 2, device=device)[: (dim // 2)].float() / dim))
         t = torch.arange(end, device=device)  # type: ignore
         freqs = torch.outer(t, freqs).float()  # type: ignore
         freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
         return freqs_cis
 
+    
     def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
         """
         Reshape frequency tensor for broadcasting it with another tensor.
@@ -76,6 +76,7 @@ class Predictor(nn.Module):
         assert freqs_cis.shape == (x.shape[1], x.shape[-1])
         shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
         return freqs_cis.view(*shape)
+
 
     def apply_rotary_emb(
         xq: torch.Tensor,
@@ -103,5 +104,5 @@ class Predictor(nn.Module):
         freqs_cis = Predictor.reshape_for_broadcast(freqs_cis, xq_)
         xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(2)
         xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(2)
-
+        
         return xq_out.type_as(xq), xk_out.type_as(xk)
