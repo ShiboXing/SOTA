@@ -37,13 +37,14 @@ class Predictor(nn.Module):
         day_info: (start_day, end_day)
         """
         # use the absolute slice of dates within a year to encode inputs
+        # _x1, _x2 = x1, x2
         _x1, _x2 = self.apply_rotary_emb(x1, x2, self.freqs, day_info[0], day_info[1])
         o1, (_, _) = self.lstm1(_x1)
         o2, (_, _) = self.lstm2(_x2)
         o3 = self.trans(_x1, _x2)
-        # o2 = self.trans(_x1, _x2)
 
-        return torch.nan_to_num(o1 + o2), torch.nan_to_num(o3)
+        return (o1 + o2), self.relu(o3)
+        # return torch.nan_to_num(o1), torch.nan_to_num(o3)
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
         """
