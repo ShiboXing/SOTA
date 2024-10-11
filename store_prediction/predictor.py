@@ -9,7 +9,7 @@ class Predictor(nn.Module):
     def __init__(self, I, H, LSTM_LAYER, TRANSFORMER_LAYER, HEAD, max_seq):
         super(Predictor, self).__init__()
         self.lstm1 = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
-        self.lstm2 = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
+        # self.lstm2 = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
         # self.lstm = Transformer(
         #     d_model=H,
         #     nhead=HEAD,
@@ -34,16 +34,20 @@ class Predictor(nn.Module):
 
     def forward(self, x1, x2, day_info: Tuple):
         """
+        x1, x2: (B, seq_len, feature)
         day_info: (start_day, end_day)
         """
         # use the absolute slice of dates within a year to encode inputs
         # _x1, _x2 = x1, x2
         _x1, _x2 = self.apply_rotary_emb(x1, x2, self.freqs, day_info[0], day_info[1])
-        o1, (_, _) = self.lstm1(_x1)
-        o2, (_, _) = self.lstm2(_x2)
+        _x = torch.stack((_x1, _x2), dim=-1).reshape(
+            _x1.shape[:-1] + (_x1.shape[-1] * 2,)
+        )  # stack and interleave the feature dimension
+        o1, (_, _) = self.lstm1(_x)
+        # o1, (_, _) = self.lstm1(_x1, ())
         o3 = self.trans(_x1, _x2)
 
-        return (o1 + o2), self.relu(o3)
+        return o1, self.relu(o3)
         # return torch.nan_to_num(o1), torch.nan_to_num(o3)
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
