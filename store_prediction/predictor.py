@@ -8,24 +8,18 @@ class Predictor(nn.Module):
 
     def __init__(self, I, H, LSTM_LAYER, TRANSFORMER_LAYER, HEAD, max_seq):
         super(Predictor, self).__init__()
-        self.lstm1 = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
-        # self.lstm2 = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True)
-        # self.lstm = Transformer(
-        #     d_model=H,
+        # use H*2 to include the positional embedding
+        self.lstm1 = LSTM(I * 2, H, num_layers=LSTM_LAYER, batch_first=True)
+        self.lstm2 = LSTM(I * 2, H, num_layers=LSTM_LAYER, batch_first=True)
+
+        # self.trans = Transformer(
+        #     d_model=H * 2,
         #     nhead=HEAD,
         #     num_encoder_layers=TRANSFORMER_LAYER,
         #     num_decoder_layers=TRANSFORMER_LAYER,
         #     batch_first=True,
         # )
-        # self.trans = LSTM(I, H, num_layers=LSTM_LAYER, batch_first=True).cuda()
-        self.trans = Transformer(
-            d_model=H,
-            nhead=HEAD,
-            num_encoder_layers=TRANSFORMER_LAYER,
-            num_decoder_layers=TRANSFORMER_LAYER,
-            batch_first=True,
-        )
-        self.relu = nn.ReLU()
+        # self.relu = nn.ReLU()
         self.freqs = self.precompute_freqs_cis(H, 365)
         self.freqs = torch.concat(
             [self.freqs, self.freqs]
@@ -39,15 +33,15 @@ class Predictor(nn.Module):
         """
         # use the absolute slice of dates within a year to encode inputs
         # _x1, _x2 = x1, x2
-        _x1, _x2 = self.apply_rotary_emb(x1, x2, self.freqs, day_info[0], day_info[1])
+        _x1, _x2 = self.apply_rotary_emb(x1, x2, self.freqs, day_info[0])
         _x = torch.stack((_x1, _x2), dim=-1).reshape(
             _x1.shape[:-1] + (_x1.shape[-1] * 2,)
         )  # stack and interleave the feature dimension
         o1, (_, _) = self.lstm1(_x)
-        # o1, (_, _) = self.lstm1(_x1, ())
-        o3 = self.trans(_x1, _x2)
+        o2, (_, _) = self.lstm2(_x)
+        # o3 = self.trans(_x1, _x2)
 
-        return o1, self.relu(o3)
+        return o1, o2
         # return torch.nan_to_num(o1), torch.nan_to_num(o3)
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
@@ -106,7 +100,6 @@ class Predictor(nn.Module):
         xk: torch.Tensor,
         freqs_cis: torch.Tensor,
         start: int,
-        end: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Apply rotary embeddings to input tensors using the given frequency tensor.
@@ -133,7 +126,10 @@ class Predictor(nn.Module):
             tmp_freqs.append(freqs_cis[start[i] : start[i] + self.max_seq].unsqueeze(0))
         freqs_cis = torch.concat(tmp_freqs)
         # freqs_cis = Predictor.reshape_for_broadcast(freqs_cis, xq_)
-        xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(2)
-        xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(2)
+        # xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(2)
+        # xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(2)
+        freqs_cis = torch.view_as_real(freqs_cis).flatten(2)
+        xq_out = torch.concat((freqs_cis, xq), axis=2)
+        xk_out = torch.concat((freqs_cis, xk), axis=2)
 
         return xq_out.type_as(xq), xk_out.type_as(xk)
