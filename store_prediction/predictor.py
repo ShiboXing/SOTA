@@ -6,11 +6,11 @@ import torch
 
 class Predictor(nn.Module):
 
-    def __init__(self, I, H, LSTM_LAYER, TRANSFORMER_LAYER, HEAD, max_seq):
+    def __init__(self, I1, I2, H, LSTM_LAYER, TRANSFORMER_LAYER, HEAD, max_seq):
         super(Predictor, self).__init__()
         # use H*2 to include the positional embedding
-        self.lstm1 = LSTM(I * 2, H, num_layers=LSTM_LAYER, batch_first=True)
-        self.lstm2 = LSTM(I * 2, H, num_layers=LSTM_LAYER, batch_first=True)
+        self.lstm1 = LSTM(I1 * 2 + I2 * 2, H, num_layers=LSTM_LAYER, batch_first=True)
+        self.lstm2 = LSTM(I1 * 2 + I2 * 2, H, num_layers=LSTM_LAYER, batch_first=True)
 
         # self.trans = Transformer(
         #     d_model=H * 2,
@@ -20,9 +20,14 @@ class Predictor(nn.Module):
         #     batch_first=True,
         # )
         # self.relu = nn.ReLU()
-        self.freqs = self.precompute_freqs_cis(H, 365)
-        self.freqs = torch.concat(
-            [self.freqs, self.freqs]
+        self.freqs1 = self.precompute_freqs_cis(I1, 365)
+        self.freqs2 = self.precompute_freqs_cis(I2, 365)
+
+        self.freqs1 = torch.concat(
+            [self.freqs1, self.freqs1]
+        )  # calculate cross-year encodings
+        self.freqs2 = torch.concat(
+            [self.freqs2, self.freqs2]
         )  # calculate cross-year encodings
         self.max_seq = max_seq
 
@@ -33,10 +38,12 @@ class Predictor(nn.Module):
         """
         # use the absolute slice of dates within a year to encode inputs
         # _x1, _x2 = x1, x2
-        _x1, _x2 = self.apply_rotary_emb(x1, x2, self.freqs, day_info[0])
-        _x = torch.stack((_x1, _x2), dim=-1).reshape(
-            _x1.shape[:-1] + (_x1.shape[-1] * 2,)
-        )  # stack and interleave the feature dimension
+        _x1 = self.apply_rotary_emb(x1, self.freqs1, day_info[0])
+        _x2 = self.apply_rotary_emb(x2, self.freqs2, day_info[0])
+        # _x = torch.stack((_x1, _x2), dim=-1).reshape(
+        #     _x1.shape[:-1] + (_x1.shape[-1] + _x2.shape[-1],)
+        # )  # stack and interleave the feature dimension
+        _x = torch.concat((_x1, _x2), dim=-1)
         o1, (_, _) = self.lstm1(_x)
         o2, (_, _) = self.lstm2(_x)
         # o3 = self.trans(_x1, _x2)
@@ -96,8 +103,7 @@ class Predictor(nn.Module):
 
     def apply_rotary_emb(
         self,
-        xq: torch.Tensor,
-        xk: torch.Tensor,
+        x: torch.Tensor,
         freqs_cis: torch.Tensor,
         start: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -117,19 +123,17 @@ class Predictor(nn.Module):
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Tuple of modified query tensor and key tensor with rotary embeddings.
         """
-        assert xq.shape[0] == len(start)
-        xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
-        xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
+        assert x.shape[0] == len(start)
+        # x_ = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
 
         tmp_freqs = []
-        for i in range(xq.shape[0]):
+        for i in range(x.shape[0]):
             tmp_freqs.append(freqs_cis[start[i] : start[i] + self.max_seq].unsqueeze(0))
         freqs_cis = torch.concat(tmp_freqs)
         # freqs_cis = Predictor.reshape_for_broadcast(freqs_cis, xq_)
         # xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(2)
         # xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(2)
         freqs_cis = torch.view_as_real(freqs_cis).flatten(2)
-        xq_out = torch.concat((freqs_cis, xq), axis=2)
-        xk_out = torch.concat((freqs_cis, xk), axis=2)
+        x_out = torch.concat((freqs_cis, x), axis=2)
 
-        return xq_out.type_as(xq), xk_out.type_as(xk)
+        return x_out.type_as(x)

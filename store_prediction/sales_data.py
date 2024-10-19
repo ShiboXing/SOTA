@@ -229,11 +229,11 @@ class Sales_Dataset(DS):
 
     def __getitem__(self, idx):
         """Sample dimension: per (date, store_nbr):
-        sequence_length * (family(N)*2 + oil(1) + transaction(1) + city(1) + cluster(1) + type(1) + holiday(1))
+        sequence_length * (family(33)*2 + oil(1) + transaction(1) + holiday(1))
         MEAN: 0
         MIN: -1
         MAX: 1
-        L * (33*2 + 6)
+        L * (33*2 + 3)
         """
         if self.is_train:
             store_id, local_id = (
@@ -307,7 +307,9 @@ class Sales_Dataset(DS):
         sale_df = pd.concat([sale_df, trans_data], axis=1)
 
         sale_df.values[:] += sale_df.date_enc.values.reshape(-1, 1)
+        date_enc = sale_df["date_enc"]
         sale_df = self.z_series(sale_df.drop(columns=["date_enc"]))
+        sale_df["date_enc"] = date_enc
         # combine the features into batch
         sample = torch.tensor(sale_df.to_numpy(), dtype=torch.float32).to(self.device)
         label_sample = torch.tensor(sale_og_df.to_numpy(), dtype=torch.float32).to(
@@ -322,16 +324,6 @@ class Sales_Dataset(DS):
 
         # output the training data and label
         base_data = sample[start_t:end_t]
-        base_data = base_data.repeat(1, self.FEATURES // base_data.shape[1])
-        base_data = torch.concat(
-            (
-                base_data,
-                base_data[
-                    :, [67, 68, 68] * ((self.FEATURES - base_data.shape[1]) // 3)
-                ],  # duplicate oil feature for the rest
-            ),
-            axis=1,
-        )
         tgt_data = torch.concat(
             (
                 sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
@@ -340,22 +332,14 @@ class Sales_Dataset(DS):
                 sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
                     :, 2:67:2
                 ],  # T+n promos
-                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][:, [67]],
+                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
+                    :, [67, 67]
+                ],  # oil rets
             ),
             axis=1,
         )
         label_t0 = label_sample[start_t:end_t].to(self.device)
         label = torch.zeros(self.sample_seq_len, self.FEATURES).to(self.device)
-        tgt_data = tgt_data.repeat(1, self.FEATURES // tgt_data.shape[1])
-        tgt_data = torch.concat(
-            (
-                tgt_data,
-                sample[start_t + self.INFER_DAYS : end_t + self.INFER_DAYS][
-                    :, [67, 67, 67]
-                ],
-            ),
-            axis=1,
-        )
         for i in range(
             1, self.INFER_DAYS + 1
         ):  # for every time step T, predict all family class from T+1 to T+16 (dim = 16*33)
