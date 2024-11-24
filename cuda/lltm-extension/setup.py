@@ -10,6 +10,7 @@ setup(
 Extension(
     name="lltm_cpp",
     sources=["lltm.cpp"],
-    include_dirs=cpp_extension.include_paths(),
+    include_dirs=cpp_extension.include_paths() + \
+        ["/usr/include/python3.12/"],
     language="c++",
 )
