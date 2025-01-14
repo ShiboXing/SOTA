@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+from ipdb import set_trace
 from lstm_cell import lstm_cell_act_forward
 
 class LSTM_Cell(nn.Module):
@@ -11,7 +12,7 @@ class LSTM_Cell(nn.Module):
         for weight in self.parameters():
             nn.init.uniform_(weight, -stdv, stdv)
 
-    def __init__(self, input_size, hidden_size, use_ext=True):
+    def __init__(self, input_size, hidden_size, use_ext=False):
         super().__init__()
         self.use_ext = use_ext
         self.input_size = input_size
@@ -27,10 +28,9 @@ class LSTM_Cell(nn.Module):
     def forward(self, inputs):
         # inputs shape is (batch_size, 1, feature_length)
         X, (h_prev, c_prev) = inputs
-
         gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
         # gates = torch.mm(X, self.Wi.t()) + torch.mm(h_prev, self.Wh.t()) + self.bi + self.bh
-        i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 1)
+        i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 2)
 
         if self.use_ext:
             return lstm_cell_act_forward(i_gate, f_gate, c_gate, o_gate)
@@ -64,31 +64,33 @@ class LSTM(nn.Module):
             )
         )
 
-    def forward(self, inputs, prev):
+    def forward(self, inputs, prev=None):
         """
         inputs (BS, Seq, in_len)
         """
         bs, seq_len, _ = inputs.shape
         device = inputs.device
-        h_prev, c_prev = prev
+        if prev == None:
+            h_prev = torch.zeros(
+                (bs, self.layer_num, self.hidden_size), requires_grad=False, device=device
+            ).to(inputs.device)
+            c_prev = torch.zeros(
+                (bs, self.layer_num, self.hidden_size), requires_grad=False, device=device
+            ).to(inputs.device)
+        else:
+            h_prev, c_prev = prev
 
         outputs, h_outputs, c_outputs = [], [], []
 
         for lstm in self.lstms:
-            # h_prev = torch.zeros(
-            #     (bs, self.hidden_size), requires_grad=False, device=device
-            # )
-            # c_prev = torch.zeros(
-            #     (bs, self.hidden_size), requires_grad=False, device=device
-            # )
             for i in range(seq_len):
-                X = inputs[:, i, :]
+                X = inputs[:, [i], :]
                 h_prev, c_prev = lstm((X, (h_prev, c_prev)))
                 # X = h_prev
                 outputs.append(h_prev)
             h_outputs.append(h_prev)
             c_outputs.append(c_prev)
-            inputs = torch.stack(outputs, dim=1)
+            inputs = torch.concat(outputs, dim=1)
             outputs = []
 
-        return inputs, (torch.stack(h_outputs), torch.stack(c_outputs))
+        return inputs, (torch.concat(h_outputs, dim=1), torch.concat(c_outputs, dim=1))

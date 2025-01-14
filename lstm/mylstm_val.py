@@ -19,20 +19,6 @@ def get_lstm_res(rank, queue):
     layer_num = 1
     BS = 16
     SEQ_LEN = 200
-    if rank == 2:
-        h_prev = torch.zeros(
-            (layer_num, BS, hidden_dim), requires_grad=False, device=device
-        )
-        c_prev = torch.zeros(
-            (layer_num, BS, hidden_dim), requires_grad=False, device=device
-        )
-    else:
-        h_prev = torch.zeros(
-            (layer_num, hidden_dim), requires_grad=False, device=device
-        )
-        c_prev = torch.zeros(
-            (layer_num, hidden_dim), requires_grad=False, device=device
-        )
 
     if rank == 0:
         model = MyLSTM(in_dim, hidden_dim, layer_num, use_ext=True).to(device)
@@ -42,7 +28,7 @@ def get_lstm_res(rank, queue):
         model = LSTM(in_dim, hidden_dim, layer_num, batch_first=True).to(device)
 
     X = torch.randn(BS, SEQ_LEN, in_dim).to(device)
-    Y, (H, C) = model(X, (h_prev, c_prev))
+    Y, (H, C) = model(X)
     queue.put((rank, Y.detach().cpu(), H.detach().cpu(), C.detach().cpu()))
     print(Y.numel(), H.numel(), C.numel())
 
@@ -71,7 +57,8 @@ rank2, Y2, H2, C2 = q.get()
 outputs[rank0] = (Y0, H0, C0)
 outputs[rank1] = (Y1, H1, C1)
 outputs[rank2] = (Y2, H2, C2)
-
+# print(outputs[0][0].shape, outputs[1][0].shape, outputs[2][0].shape)
+# print(outputs[0][1].shape, outputs[1][1].shape, outputs[2][1].shape)
 print((torch.abs(outputs[0][0] - outputs[1][0]) > 1e-4).sum())
 print((torch.abs(outputs[1][0] - outputs[2][0]) > 1e-4).sum())
 print((torch.abs(outputs[0][1] - outputs[1][1]) > 1e-4).sum())
