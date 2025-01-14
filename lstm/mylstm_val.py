@@ -29,14 +29,8 @@ def get_lstm_res(rank, queue):
 
     X = torch.randn(BS, SEQ_LEN, in_dim).to(device)
     Y, (H, C) = model(X)
+    print(f"rank {rank} putting queue")
     queue.put((rank, Y.detach().cpu(), H.detach().cpu(), C.detach().cpu()))
-    print(Y.numel(), H.numel(), C.numel())
-
-    # model_params = enumerate(model.parameters())
-    # print("param len: ", len(list(model.parameters())))
-    # queue.put((rank, X.detach().clone().cpu(), \
-            # next(model_params)[1].detach().clone().cpu(), \
-            # next(model_params)[1].detach().clone().cpu()))
 
 
 q = mp.Manager().Queue()
@@ -57,17 +51,12 @@ rank2, Y2, H2, C2 = q.get()
 outputs[rank0] = (Y0, H0, C0)
 outputs[rank1] = (Y1, H1, C1)
 outputs[rank2] = (Y2, H2, C2)
-# print(outputs[0][0].shape, outputs[1][0].shape, outputs[2][0].shape)
-# print(outputs[0][1].shape, outputs[1][1].shape, outputs[2][1].shape)
+print(outputs[0][0].shape, outputs[1][0].shape, outputs[2][0].shape)
+print(outputs[0][1].shape, outputs[1][1].shape, outputs[2][1].shape)
+print(outputs[0][2].shape, outputs[1][2].shape, outputs[2][2].shape)
 print((torch.abs(outputs[0][0] - outputs[1][0]) > 1e-4).sum())
 print((torch.abs(outputs[1][0] - outputs[2][0]) > 1e-4).sum())
 print((torch.abs(outputs[0][1] - outputs[1][1]) > 1e-4).sum())
 print((torch.abs(outputs[1][1] - outputs[2][1]) > 1e-4).sum())
 print((torch.abs(outputs[0][2] - outputs[1][2]) > 1e-4).sum())
 print((torch.abs(outputs[1][2] - outputs[2][2]) > 1e-4).sum())
-# print((torch.abs(H-H_og) > 1e-4).sum())
-# print((torch.abs(C-C_og) > 1e-4).sum())
-
-# Y[3, 0, 3] = 0.03134
-# for i, p in enumerate(model.parameters()):
-#     print(p.shape)

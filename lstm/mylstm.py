@@ -92,5 +92,5 @@ class LSTM(nn.Module):
             c_outputs.append(c_prev)
             inputs = torch.concat(outputs, dim=1)
             outputs = []
-
-        return inputs, (torch.concat(h_outputs, dim=1), torch.concat(c_outputs, dim=1))
+        # set_trace()
+        return inputs, (torch.concat(h_outputs, dim=1).permute(1, 0, 2), torch.concat(c_outputs, dim=1).permute(1, 0, 2))
