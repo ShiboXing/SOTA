@@ -64,33 +64,32 @@ class LSTM(nn.Module):
             )
         )
 
-    def forward(self, inputs, prev=None):
+    def forward(self, inputs):
         """
         inputs (BS, Seq, in_len)
         """
         bs, seq_len, _ = inputs.shape
         device = inputs.device
-        if prev == None:
-            h_prev = torch.zeros(
-                (bs, self.layer_num, self.hidden_size), requires_grad=False, device=device
-            ).to(inputs.device)
-            c_prev = torch.zeros(
-                (bs, self.layer_num, self.hidden_size), requires_grad=False, device=device
-            ).to(inputs.device)
-        else:
-            h_prev, c_prev = prev
-
         outputs, h_outputs, c_outputs = [], [], []
 
+        # layer by layer
         for lstm in self.lstms:
+            h_prev = torch.zeros(
+                (bs, 1, self.hidden_size), requires_grad=False, device=device
+            ).to(inputs.device)
+            c_prev = torch.zeros(
+                (bs, 1, self.hidden_size), requires_grad=False, device=device
+            ).to(inputs.device)
+            
+            # token by token
             for i in range(seq_len):
                 X = inputs[:, [i], :]
                 h_prev, c_prev = lstm((X, (h_prev, c_prev)))
-                # X = h_prev
                 outputs.append(h_prev)
+
             h_outputs.append(h_prev)
             c_outputs.append(c_prev)
             inputs = torch.concat(outputs, dim=1)
             outputs = []
-        # set_trace()
+
         return inputs, (torch.concat(h_outputs, dim=1).permute(1, 0, 2), torch.concat(c_outputs, dim=1).permute(1, 0, 2))

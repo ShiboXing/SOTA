@@ -5,9 +5,18 @@ forward and backward
 
 from mylstm import LSTM
 from torch import nn
-import torch.multiprocessing as mp
 import torch
 
-model = LSTM(6, 10, 1).to("cuda")
-X = torch.randn(4, 20, 6).to("cuda")
+in_dim = 6
+hidden_dim = 10
+layer_num = 2
+device = "cuda"
+
+model = LSTM(in_dim, hidden_dim, layer_num).to(device)
+X = torch.randn(4, 20, in_dim).to(device)
 Y, (H, C) = model(X)
+print(Y.shape, H.shape, C.shape)
+
+model = nn.LSTM(in_dim, hidden_dim, layer_num, batch_first=True).to(device)
+Y, (H, C) = model(X)
+print(Y.shape, H.shape, C.shape)

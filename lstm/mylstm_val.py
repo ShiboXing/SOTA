@@ -16,7 +16,7 @@ def get_lstm_res(rank, queue):
     device = torch.device("cuda:0")
     in_dim = 100
     hidden_dim = 200
-    layer_num = 1
+    layer_num = 4
     BS = 16
     SEQ_LEN = 200
 
@@ -54,9 +54,9 @@ outputs[rank2] = (Y2, H2, C2)
 print(outputs[0][0].shape, outputs[1][0].shape, outputs[2][0].shape)
 print(outputs[0][1].shape, outputs[1][1].shape, outputs[2][1].shape)
 print(outputs[0][2].shape, outputs[1][2].shape, outputs[2][2].shape)
-print((torch.abs(outputs[0][0] - outputs[1][0]) > 1e-4).sum())
-print((torch.abs(outputs[1][0] - outputs[2][0]) > 1e-4).sum())
-print((torch.abs(outputs[0][1] - outputs[1][1]) > 1e-4).sum())
-print((torch.abs(outputs[1][1] - outputs[2][1]) > 1e-4).sum())
-print((torch.abs(outputs[0][2] - outputs[1][2]) > 1e-4).sum())
-print((torch.abs(outputs[1][2] - outputs[2][2]) > 1e-4).sum())
+print((torch.abs(outputs[0][0] - outputs[1][0]) > 1e-4).sum(), torch.equal(outputs[0][0], outputs[1][0]))
+print((torch.abs(outputs[1][0] - outputs[2][0]) > 1e-4).sum(), torch.equal(outputs[1][0], outputs[2][0]))
+print((torch.abs(outputs[0][1] - outputs[1][1]) > 1e-4).sum(), torch.equal(outputs[0][1], outputs[1][1]))
+print((torch.abs(outputs[1][1] - outputs[2][1]) > 1e-4).sum(), torch.equal(outputs[1][1], outputs[2][1]))
+print((torch.abs(outputs[0][2] - outputs[1][2]) > 1e-4).sum(), torch.equal(outputs[0][2], outputs[1][2]))
+print((torch.abs(outputs[1][2] - outputs[2][2]) > 1e-4).sum(), torch.equal(outputs[1][2], outputs[2][2]))
