@@ -5,6 +5,7 @@ import math
 from ipdb import set_trace
 from lstm_cell import lstm_cell_act_forward
 
+
 class LSTM_Cell(nn.Module):
 
     def reset_parameters(self) -> None:
@@ -80,7 +81,7 @@ class LSTM(nn.Module):
             c_prev = torch.zeros(
                 (bs, 1, self.hidden_size), requires_grad=False, device=device
             ).to(inputs.device)
-            
+
             # token by token
             for i in range(seq_len):
                 X = inputs[:, [i], :]
@@ -92,4 +93,7 @@ class LSTM(nn.Module):
             inputs = torch.concat(outputs, dim=1)
             outputs = []
 
-        return inputs, (torch.concat(h_outputs, dim=1).permute(1, 0, 2), torch.concat(c_outputs, dim=1).permute(1, 0, 2))
+        return inputs, (
+            torch.concat(h_outputs, dim=1).permute(1, 0, 2),
+            torch.concat(c_outputs, dim=1).permute(1, 0, 2),
+        )

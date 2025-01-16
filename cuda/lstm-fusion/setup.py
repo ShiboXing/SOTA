@@ -10,7 +10,6 @@ setup(
 Extension(
     name="lstm_cell",
     sources=["lstm.cpp"],
-    include_dirs=cpp_extension.include_paths() + \
-        ["/root/pydev/include/python3.12/"],
+    include_dirs=cpp_extension.include_paths() + ["/root/pydev/include/python3.12/"],
     language="c++",
 )

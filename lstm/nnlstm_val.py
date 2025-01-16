@@ -2,6 +2,7 @@
 Validate if the custom LSTM produces the same values as the torch.nn.LSTM
 forward and backward
 """
+
 from mylstm import LSTM
 from torch import nn
 import torch.multiprocessing as mp
@@ -24,9 +25,9 @@ model.use_ext = False
 Y_og, (H_og, C_og) = model(X)
 
 print(Y.numel(), H.numel(), C.numel())
-print((torch.abs(Y-Y_og) > 1e-4).sum())
-print((torch.abs(H-H_og) > 1e-4).sum())
-print((torch.abs(C-C_og) > 1e-4).sum())
+print((torch.abs(Y - Y_og) > 1e-4).sum())
+print((torch.abs(H - H_og) > 1e-4).sum())
+print((torch.abs(C - C_og) > 1e-4).sum())
 
 # Y[3, 0, 3] = 0.03134
 # for i, p in enumerate(model.parameters()):
