@@ -11,6 +11,6 @@ Extension(
     name="lstm_cell",
     sources=["lstm.cpp"],
     include_dirs=cpp_extension.include_paths() + \
-        ["/usr/include/python3.12/"],
+        ["/root/pydev/include/python3.12/"],
     language="c++",
 )
