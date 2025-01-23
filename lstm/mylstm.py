@@ -34,7 +34,7 @@ class LSTM_Cell(nn.Module):
         i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 2)
 
         if self.use_ext:
-            return lstm_cell_act_forward(i_gate, f_gate, c_gate, o_gate)
+            return lstm_cell_act_forward(i_gate, f_gate, c_gate, o_gate, c_prev)
 
         i_gate = torch.sigmoid(i_gate)  # input gate
         f_gate = torch.sigmoid(f_gate)  # forget gate
@@ -51,15 +51,14 @@ class LSTM_Cell(nn.Module):
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, layer_num, use_ext=True):
         super().__init__()
-        self.use_ext = use_ext
         self.hidden_size = hidden_size
         self.layer_num = layer_num
         self.lstms = nn.ModuleList(
             (
                 (
-                    LSTM_Cell(hidden_size, hidden_size)
+                    LSTM_Cell(hidden_size, hidden_size, use_ext=use_ext)
                     if i
-                    else LSTM_Cell(input_size, hidden_size)
+                    else LSTM_Cell(input_size, hidden_size, use_ext=use_ext)
                 )
                 for i in range(layer_num)
             )
