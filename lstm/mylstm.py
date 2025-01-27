@@ -31,11 +31,10 @@ class LSTM_Cell(nn.Module):
         X, (h_prev, c_prev) = inputs
         gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
         # gates = torch.mm(X, self.Wi.t()) + torch.mm(h_prev, self.Wh.t()) + self.bi + self.bh
-        i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 2)
 
         if self.use_ext:
-            return lstm_cell_act_forward(i_gate, f_gate, c_gate, o_gate, c_prev)
-
+            return lstm_cell_act_forward(gates, c_prev)
+        i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 2)
         i_gate = torch.sigmoid(i_gate)  # input gate
         f_gate = torch.sigmoid(f_gate)  # forget gate
         c_gate = torch.tanh(c_gate)  # cell gate
