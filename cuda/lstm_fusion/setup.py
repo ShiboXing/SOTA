@@ -1,15 +1,26 @@
 from setuptools import setup, Extension
 from torch.utils import cpp_extension
 
-setup(
+lstm_ext = Extension(
     name="lstm_cell",
-    ext_modules=[cpp_extension.CppExtension("lstm_cell", ["lstm.cpp"])],
-    cmdclass={"build_ext": cpp_extension.BuildExtension},
+    sources=[
+        "lstm.cpp",
+        "lstm_cell_fwd.cu"
+    ],
+    include_dirs=cpp_extension.include_paths() + [
+        "/root/pydev/include/python3.12/",
+        "/usr/local/cuda-12.1/targets/x86_64-linux/include/",
+    ],
+    library_dirs=[
+        "/usr/local/cuda/lib64",  # CUDA library path
+    ],
+    libraries=["cudart"],  # CUDA runtime library
+    language="c++",
 )
 
-Extension(
+
+setup(
     name="lstm_cell",
-    sources=["lstm.cpp"],
-    include_dirs=cpp_extension.include_paths() + ["/root/pydev/include/python3.12/"],
-    language="c++",
+    ext_modules=[lstm_ext],
+    cmdclass={"build_ext": cpp_extension.BuildExtension},
 )
