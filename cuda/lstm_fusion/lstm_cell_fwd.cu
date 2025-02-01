@@ -3,6 +3,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+#include <iostream>
 #include <vector>
 
 using namespace std;
@@ -14,13 +15,9 @@ __device__ __forceinline__ scalar_t sigmoid(scalar_t &z) {
 
 template <typename scalar_t>
 __global__ void lstm_cell_act_fwd(
-    const scalar_t* __restrict__ gates,
-    size_t state_size) {
-  const int column = blockIdx.x * blockDim.x + threadIdx.x;
-  const int index = blockIdx.y * state_size + column;
-  const int gates_row = blockIdx.y * (state_size * 3);
-  cout << blockDim.x << " " << blockIdx.x << " " << blockDim.y << " " << blockIdx.y << "\n";
-  cout << threadIdx.x << " " << threadIdx.y << "\n";
+    const scalar_t* __restrict__ gates) {
+  printf("blockDim.x: %d, blockIdx.x: %d, blockDim.y: %d blockIdx.y: %d", blockDim.x, blockIdx.x, blockDim.y, blockIdx.y);
+  printf("threadIdx.x: %d, threadIdx.y: %d", threadIdx.x, threadIdx.y);
   // if (column < state_size) {
   //   input_gate[index] = sigmoid(gates[gates_row + column]);
   //   output_gate[index] = sigmoid(gates[gates_row + state_size + column]);
@@ -41,7 +38,7 @@ vector<at::Tensor> lstm_cell_act_forward_cuda(
     const int threads = prop.maxThreadsPerBlock;
     const dim3 blocks((gates.size(0) + threads - 1) / threads, gates.size(1));
 
-    AT_DISPATCH_FLOATING_TYPES(gates.options(), "lstm_cell_act_forward", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(gates.type(), "lstm_cell_act_forward", ([&] {
         lstm_cell_act_fwd<scalar_t><<<blocks, threads>>>(
             gates.data<scalar_t>());
     }));
