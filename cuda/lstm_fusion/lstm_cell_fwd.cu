@@ -16,8 +16,13 @@ __device__ __forceinline__ scalar_t sigmoid(scalar_t &z) {
 template <typename scalar_t>
 __global__ void lstm_cell_act_fwd(
     const scalar_t* __restrict__ gates) {
-  printf("blockDim.x: %d, blockIdx.x: %d, blockDim.y: %d blockIdx.y: %d", blockDim.x, blockIdx.x, blockDim.y, blockIdx.y);
-  printf("threadIdx.x: %d, threadIdx.y: %d", threadIdx.x, threadIdx.y);
+  
+  if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 && 
+    blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0) {
+        printf("blockDim.x: %d, blockIdx.x: %d, blockDim.y: %d blockIdx.y: %d\n", blockDim.x, blockIdx.x, blockDim.y, blockIdx.y);
+        printf("threadIdx.x: %d, threadIdx.y: %d\n", threadIdx.x, threadIdx.y);
+        printf("gridDim.x: %d, gridDim.y: %d\n", gridDim.x, gridDim.y);
+    }
   // if (column < state_size) {
   //   input_gate[index] = sigmoid(gates[gates_row + column]);
   //   output_gate[index] = sigmoid(gates[gates_row + state_size + column]);
@@ -37,7 +42,8 @@ vector<at::Tensor> lstm_cell_act_forward_cuda(
     cudaGetDeviceProperties(&prop, 0);
     const int threads = prop.maxThreadsPerBlock;
     const dim3 blocks((gates.size(0) + threads - 1) / threads, gates.size(1));
-
+    cout << "threads per block called:" << threads << "\n";
+    std::cout << "Blocks called: (" << blocks.x << ", " << blocks.y << ", " << blocks.z << ")" << std::endl;
     AT_DISPATCH_FLOATING_TYPES(gates.type(), "lstm_cell_act_forward", ([&] {
         lstm_cell_act_fwd<scalar_t><<<blocks, threads>>>(
             gates.data<scalar_t>());
