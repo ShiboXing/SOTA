@@ -43,7 +43,6 @@ class LSTM_Cell(nn.Module):
         c_next = f_gate * c_prev + i_gate * c_gate
 
         h_next = o_gate * torch.tanh(c_next)
-
         return h_next, c_next
 
 

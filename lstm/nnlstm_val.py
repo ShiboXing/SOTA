@@ -17,7 +17,7 @@ layer_num = 4
 BS = 16
 SEQ_LEN = 200
 
-model = LSTM(in_dim, hidden_dim, layer_num).to(device)
+model = LSTM(in_dim, hidden_dim, layer_num, use_ext=False).to(device)
 X = torch.randn(BS, SEQ_LEN, in_dim).to(device)
 Y, (H, C) = model(X)
 

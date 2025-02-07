@@ -14,19 +14,36 @@ __device__ __forceinline__ scalar_t sigmoid(scalar_t &z) {
 }
 
 template <typename scalar_t>
+__device__ __forceinline__ scalar_t tanh(scalar_t &z) {
+  scalar_t exp_res = exp(-2 * z);
+  return (1.0 - exp_res) / (1.0 + exp_res);
+}
+
+template <typename scalar_t>
 __global__ void lstm_cell_act_fwd(
-    const scalar_t* __restrict__ gates) {
+    scalar_t* __restrict__ gates, 
+    const int64_t numel, 
+    const int64_t state_size) {
   
-  const int column = blockIdx.x * blockDim.x + threadIdx.x;
   // const int index = blockIdx.y * state_size + column;
   // const int gates_row = blockIdx.y * (state_size * 3);
-  if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 && 
-    blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0) {
-        printf("blockDim.x: %d, blockIdx.x: %d, blockDim.y: %d blockIdx.y: %d\n", blockDim.x, blockIdx.x, blockDim.y, blockIdx.y);
-        printf("threadIdx.x: %d, threadIdx.y: %d\n", threadIdx.x, threadIdx.y);
-        printf("gridDim.x: %d, gridDim.y: %d\n", gridDim.x, gridDim.y);
-        printf("col, index, gates_rows: %d", column);
-    }
+  // if (threadIdx.x == 700 && threadIdx.y == 0 && threadIdx.z == 0 && 
+  //   blockIdx.x == 10 && blockIdx.y == 0 && blockIdx.z == 0) {
+  //       printf("blockDim.x: %d, blockIdx.x: %d, blockDim.y: %d blockIdx.y: %d\n", blockDim.x, blockIdx.x, blockDim.y, blockIdx.y);
+  //       printf("threadIdx.x: %d, threadIdx.y: %d\n", threadIdx.x, threadIdx.y);
+  //       printf("gridDim.x: %d, gridDim.y: %d\n", gridDim.x, gridDim.y);
+  //       printf("col, index, gates_rows: %d", column);
+  //       printf("state_size: %d", state_size);
+  //   }
+  const int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= numel) return;
+  const int64_t col = i % state_size;
+  const int64_t tanh_st = 2 * state_size, tanh_ed = tanh_st + state_size;
+  if (col >= tanh_st && col < tanh_ed) {
+    gates[i] = tanh(gates[i]);
+  } else {
+    gates[i] = sigmoid(gates[i]);
+  }
   // if (column < state_size) {
   //   input_gate[index] = sigmoid(gates[gates_row + column]);
   //   output_gate[index] = sigmoid(gates[gates_row + state_size + column]);
@@ -46,21 +63,12 @@ vector<at::Tensor> lstm_cell_act_forward_cuda(
     cudaGetDeviceProperties(&prop, 0);
     const int threads = prop.maxThreadsPerBlock;
     const dim3 blocks((gates.numel() + threads - 1) / threads);
-    cout << "threads per block called:" << threads << "\n";
-    std::cout << "Blocks called: (" << blocks.x << ", " << blocks.y << ", " << blocks.z << ")" << std::endl;
-    std::cout << "gates shape: ";
-    for (int64_t i = 0; i < gates.dim(); ++i) {
-        std::cout << gates.size(i) << " ";
-    }
-    std::cout << "\n";
-    std::cout << "c_prev shape: ";
-    for (int64_t i = 0; i < c_prev.dim(); ++i) {
-        std::cout << c_prev.size(i) << " ";
-    }
-    std::cout << "\n";
+    // cout << "threads per block called:" << threads << "\n";
+    // std::cout << "Blocks called: (" << blocks.x << ", " << blocks.y << ", " << blocks.z << ")" << std::endl;
+
     AT_DISPATCH_FLOATING_TYPES(gates.type(), "lstm_cell_act_forward", ([&] {
         lstm_cell_act_fwd<scalar_t><<<blocks, threads>>>(
-            gates.data<scalar_t>());
+            gates.data<scalar_t>(), gates.numel(), c_prev.size(-1));
     }));
     
     vector<torch::Tensor> chunks = torch::chunk(gates, 4, 2);
