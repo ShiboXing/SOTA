@@ -52,9 +52,9 @@ rank2, Y2, H2, C2 = q.get()
 outputs[rank0] = (Y0, H0, C0)
 outputs[rank1] = (Y1, H1, C1)
 outputs[rank2] = (Y2, H2, C2)
-print(outputs[0][0].shape, outputs[1][0].shape, outputs[2][0].shape)
-print(outputs[0][1].shape, outputs[1][1].shape, outputs[2][1].shape)
-print(outputs[0][2].shape, outputs[1][2].shape, outputs[2][2].shape)
+print(outputs[0][0].shape, outputs[1][0].shape, outputs[2][0].shape, outputs[2][0].numel())
+print(outputs[0][1].shape, outputs[1][1].shape, outputs[2][1].shape, outputs[2][1].numel())
+print(outputs[0][2].shape, outputs[1][2].shape, outputs[2][2].shape, outputs[2][2].numel())
 print(
     (torch.abs(outputs[0][0] - outputs[1][0]) > 1e-4).sum(),
     torch.equal(outputs[0][0], outputs[1][0]),
