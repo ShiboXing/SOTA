@@ -8,7 +8,7 @@ from torch.nn import LSTM
 import random
 import torch.multiprocessing as mp
 import torch
-from time import sleep
+from time import sleep, time
 
 
 def get_lstm_res(rank, queue):
@@ -29,8 +29,11 @@ def get_lstm_res(rank, queue):
         model = LSTM(in_dim, hidden_dim, layer_num, batch_first=True).to(device)
 
     X = torch.randn(BS, SEQ_LEN, in_dim).to(device)
-    Y, (H, C) = model(X)
-    print(f"rank {rank} putting queue")
+    start_t = time()
+    for _ in range(1000):
+        Y, (H, C) = model(X)
+    end_t = time()
+    print(f"rank {rank} putting queue, latency: {end_t - start_t}")
     queue.put((rank, Y.detach().cpu(), H.detach().cpu(), C.detach().cpu()))
 
 
