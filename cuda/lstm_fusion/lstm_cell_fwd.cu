@@ -49,8 +49,13 @@ __global__ void lstm_cell_act_fwd(
 }
 
 vector<at::Tensor> lstm_cell_act_forward_cuda(
-    torch::Tensor &gates,
-    torch::Tensor &c_prev)
+    torch::Tensor &input, 
+    torch::Tensor &h_prev,
+    torch::Tensor &c_prev,
+    torch::Tensor &wi, 
+    torch::Tensor &wh,
+    torch::Tensor &bi,
+    torch::Tensor &bh)
 {
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -58,7 +63,7 @@ vector<at::Tensor> lstm_cell_act_forward_cuda(
     const dim3 blocks((c_prev.numel() + threads - 1) / threads);
     torch::Tensor c_new = torch::zeros_like(c_prev);
     torch::Tensor h_new = torch::zeros_like(c_prev);
-
+    torch::Tensor gates = at::matmul(input, wi.t()) + at::matmul(h_prev, wh.t()) + bi + bh;
     AT_DISPATCH_FLOATING_TYPES(gates.type(), "lstm_cell_act_forward", ([&] {
         lstm_cell_act_fwd<scalar_t><<<blocks, threads>>>(
             gates.data<scalar_t>(), \

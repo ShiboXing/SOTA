@@ -16,22 +16,20 @@ in_dim = 200
 hidden_dim = 200
 layer_num = 4
 BS = 16
-SEQ_LEN = 200
+SEQ_LEN = 1
 
-# model = nn.LSTM(in_dim, hidden_dim, layer_num).to(device)
-# model = LSTM(in_dim, hidden_dim, layer_num, use_ext=False).to(device)
-model = LSTM(in_dim, hidden_dim, layer_num, use_ext=True).to(device)
-Y = torch.randn(BS, SEQ_LEN, in_dim).to(device)
+model = nn.LSTM(in_dim, hidden_dim, layer_num).to(device)
+# model = LSTM(in_dim, hidden_dim, layer_num, use_ext=True).to(device)
+X = torch.randn(BS, SEQ_LEN, in_dim).to(device)
 
 start_t = time()
-for _ in range(100):
-    Y, (H, C) = model(Y)
+Y, (H, C) = model(X)
 end_t = time()
 
 print(f"latency: {end_t - start_t}")
 
 model.use_ext = False
-Y_og, (H_og, C_og) = model(Y)
+Y_og, (H_og, C_og) = model(X)
 
 print(Y.numel(), H.numel(), C.numel())
 print((torch.abs(Y - Y_og) > 1e-4).sum())

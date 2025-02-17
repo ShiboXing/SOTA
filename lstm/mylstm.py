@@ -29,11 +29,13 @@ class LSTM_Cell(nn.Module):
     def forward(self, inputs):
         # inputs shape is (batch_size, 1, feature_length)
         X, (h_prev, c_prev) = inputs
-        gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
         # gates = torch.mm(X, self.Wi.t()) + torch.mm(h_prev, self.Wh.t()) + self.bi + self.bh
 
         if self.use_ext:
-            return lstm_cell_act_forward(gates, c_prev)
+            return lstm_cell_act_forward(X, h_prev, c_prev, self.Wi, self.Wh, \
+                                         self.bi, self.bh)
+        
+        gates = F.linear(X, self.Wi, self.bi) + F.linear(h_prev, self.Wh, self.bh)
         i_gate, f_gate, c_gate, o_gate = gates.chunk(4, 2)
         i_gate = torch.sigmoid(i_gate)  # input gate
         f_gate = torch.sigmoid(f_gate)  # forget gate
@@ -70,6 +72,9 @@ class LSTM(nn.Module):
         device = inputs.device
         outputs, h_outputs, c_outputs = [], [], []
 
+        """
+        enhance performance by looping in C++ wrapper
+        """
         # layer by layer
         for lstm in self.lstms:
             h_prev = torch.zeros(

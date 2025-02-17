@@ -10,15 +10,30 @@
 using namespace std;
 
 vector<torch::Tensor> lstm_cell_act_forward_cuda(
-    torch::Tensor &gates,
-    torch::Tensor &c_prev);
+    torch::Tensor &input, 
+    torch::Tensor &h_prev,
+    torch::Tensor &c_prev,
+    torch::Tensor &wi, 
+    torch::Tensor &wh,
+    torch::Tensor &bi,
+    torch::Tensor &bh);
 
 vector<at::Tensor> lstm_cell_act_forward(
-    torch::Tensor &gates,
-    torch::Tensor &c_prev) {
-    CHECK_INPUT(gates);
+    torch::Tensor &input, 
+    torch::Tensor &h_prev,
+    torch::Tensor &c_prev,
+    torch::Tensor &wi, 
+    torch::Tensor &wh,
+    torch::Tensor &bi,
+    torch::Tensor &bh) {
+    CHECK_INPUT(input);
+    CHECK_INPUT(h_prev);
     CHECK_INPUT(c_prev);
-    return lstm_cell_act_forward_cuda(gates, c_prev);
+    CHECK_INPUT(wi);
+    CHECK_INPUT(wh);
+    CHECK_INPUT(bi);
+    CHECK_INPUT(bh);
+    return lstm_cell_act_forward_cuda(input, h_prev, c_prev, wi, wh, bi, bh);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
