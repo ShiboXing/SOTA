@@ -16,10 +16,10 @@ in_dim = 200
 hidden_dim = 200
 layer_num = 4
 BS = 16
-SEQ_LEN = 1
+SEQ_LEN = 100
 
-model = nn.LSTM(in_dim, hidden_dim, layer_num).to(device)
-# model = LSTM(in_dim, hidden_dim, layer_num, use_ext=True).to(device)
+# model = nn.LSTM(in_dim, hidden_dim, layer_num).to(device)
+model = LSTM(in_dim, hidden_dim, layer_num, use_ext=True).to(device)
 X = torch.randn(BS, SEQ_LEN, in_dim).to(device)
 
 start_t = time()

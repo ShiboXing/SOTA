@@ -21,10 +21,13 @@ __device__ __forceinline__ scalar_t tanh(scalar_t &z) {
 
 template <typename scalar_t>
 __global__ void lstm_cell_act_fwd(
-    scalar_t* __restrict__ gates, 
+    scalar_t* __restrict__ i_gates, 
+    scalar_t* __restrict__ h_gates, 
+    scalar_t* __restrict__ i_b, 
+    scalar_t* __restrict__ h_b, 
     scalar_t* __restrict__ c_prev, 
     scalar_t* __restrict__ c_new, 
-    scalar_t* __restrict__ h_new, 
+    scalar_t* __restrict__ h_new,
     const int64_t c_prev_numel, 
     const int64_t state_size) {
   
@@ -38,14 +41,22 @@ __global__ void lstm_cell_act_fwd(
   const int64_t id1 = id0 + state_size;
   const int64_t id2 = id1 + state_size;
   const int64_t id3 = id2 + state_size;
-  gates[id0] = sigmoid(gates[id0]); // i_gate
-  gates[id1] = sigmoid(gates[id1]); // f_gate
-  gates[id2] = tanh(gates[id2]); // c_gate
-  gates[id3] = sigmoid(gates[id3]); // o_gate
+  
+  const int64_t col1 = col + state_size;
+  const int64_t col2 = col1 + state_size;
+  const int64_t col3 = col2 + state_size;
+  i_gates[id0] = i_gates[id0] + h_gates[id0] + i_b[col] + h_b[col];
+  i_gates[id1] = i_gates[id1] + h_gates[id1] + i_b[col1] + h_b[col1];
+  i_gates[id2] = i_gates[id2] + h_gates[id2] + i_b[col2] + h_b[col2];
+  i_gates[id3] = i_gates[id3] + h_gates[id3] + i_b[col3] + h_b[col3];
+  i_gates[id0] = sigmoid(i_gates[id0]); // i_gate
+  i_gates[id1] = sigmoid(i_gates[id1]); // f_gate
+  i_gates[id2] = tanh(i_gates[id2]); // c_gate
+  i_gates[id3] = sigmoid(i_gates[id3]); // o_gate
   
   const int64_t idc = row * state_size + col;
-  c_new[idc] = gates[id1] * c_prev[idc] + gates[id0] * gates[id2];
-  h_new[idc] = gates[id3] * tanh(c_new[idc]);
+  c_new[idc] = i_gates[id1] * c_prev[idc] + i_gates[id0] * i_gates[id2];
+  h_new[idc] = i_gates[id3] * tanh(c_new[idc]);
 }
 
 vector<at::Tensor> lstm_cell_act_forward_cuda(
@@ -63,22 +74,24 @@ vector<at::Tensor> lstm_cell_act_forward_cuda(
     const dim3 blocks((c_prev.numel() + threads - 1) / threads);
     torch::Tensor c_new = torch::zeros_like(c_prev);
     torch::Tensor h_new = torch::zeros_like(c_prev);
-    torch::Tensor gates = at::matmul(input, wi.t()) + at::matmul(h_prev, wh.t()) + bi + bh;
-    AT_DISPATCH_FLOATING_TYPES(gates.type(), "lstm_cell_act_forward", ([&] {
+    torch::Tensor i_gates = at::matmul(input, wi.t());
+    torch::Tensor h_gates = at::matmul(h_prev, wh.t());
+    // i_gates += h_gates + bi + bh;
+
+    
+    // cout << "shapes:  " << i_gates.sizes() << " " << h_gates.sizes() << " " << bi.sizes() << " " << bh.sizes() << c_prev.sizes() << "\n";
+    AT_DISPATCH_FLOATING_TYPES(i_gates.type(), "lstm_cell_act_forward", ([&] {
         lstm_cell_act_fwd<scalar_t><<<blocks, threads>>>(
-            gates.data<scalar_t>(), \
+            i_gates.data<scalar_t>(), \
+            h_gates.data<scalar_t>(), \
+            bi.data<scalar_t>(), \
+            bh.data<scalar_t>(), \
             c_prev.data<scalar_t>(), \
             c_new.data<scalar_t>(), \
             h_new.data<scalar_t>(), \
             c_prev.numel(), \
             c_prev.size(-1));
     }));
-    
-    vector<torch::Tensor> chunks = torch::chunk(gates, 4, 2);
-    torch::Tensor i_gate = chunks[0], 
-        f_gate = chunks[1],
-        c_gate = chunks[2],
-        o_gate = chunks[3];
         
     return {h_new, c_new};
 }
